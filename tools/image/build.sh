@@ -1,9 +1,10 @@
 #!/bin/sh
 # Builds the guest image for the desktop on `/`:
 #   images/vmlinuz     - kernel of the official 32-bit Tiny Core Core-17.1.iso
-#   images/desktop.gz  - its core.gz with X11 (Xvesa), IceWM, aterm and all their
-#                        dependencies appended as a second cpio archive, so the
-#                        guest boots straight into IceWM without any network.
+#   images/desktop.gz  - its core.gz with X11 (Xvesa), twm, Tk (the dock), aterm
+#                        and all their dependencies appended as a second cpio
+#                        archive, so the guest boots straight into twm without
+#                        any network.
 # Needs: sh, curl, bsdtar (libarchive), unsquashfs (squashfs-tools), gzip, awk.
 set -eu
 
@@ -11,7 +12,7 @@ VERSION=17.1
 MIRROR=http://tinycorelinux.net/17.x/x86
 ISO=Core-$VERSION.iso
 ISO_MD5=8d5efae4cbf4ba463fa012d29e58918e
-EXTENSIONS="Xvesa icewm aterm flaxpdf idesk"
+EXTENSIONS="Xvesa twm xsetroot tk8.6 aterm flaxpdf idesk"
 # Fixed mtime for everything in the appended archive (2025-07-16, the core.gz date).
 EPOCH=1752624000
 

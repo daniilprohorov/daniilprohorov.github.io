@@ -1,6 +1,0 @@
-# Stock Tiny Core settings with the taskbar at the bottom, without the built-in
-# Settings submenu and the Help item (the image has no IceWM docs).
-TaskBarAtTop=0
-WorkspaceNames=" 1 ", " 2 ", " 3 ", " 4 "
-ShowSettingsMenu=0
-ShowHelp=0

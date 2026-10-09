@@ -1,0 +1,31 @@
+#!/usr/local/bin/wish
+# Launcher column in the top-right corner, in the spirit of 9menu: a clock and
+# one button per program. Override-redirect, so twm neither decorates it nor
+# lists it in the Icon Manager.
+
+wm overrideredirect . 1
+. configure -background black -borderwidth 1
+
+set font {Helvetica 10 bold}
+label .clock -font $font -width 12 -relief sunken -background gray70
+pack .clock -fill x -padx 1 -pady 1
+
+proc launcher {name label command} {
+    global font
+    button .$name -text $label -font $font -relief raised -borderwidth 2 \
+        -background gray80 -activebackground gray90 -highlightthickness 0 \
+        -command [list exec sh -c $command &]
+    pack .$name -fill x -padx 1 -pady 1
+}
+launcher bike "Bike Geometry" "open-webapp bike-geometry"
+launcher cv "cv.pdf" "flaxpdf $env(HOME)/Desktop/cv.pdf"
+launcher term "xterm" "aterm"
+
+proc tick {} {
+    .clock configure -text [clock format [clock seconds] -format %H:%M]
+    after 1000 tick
+}
+tick
+
+update idletasks
+wm geometry . -0+0

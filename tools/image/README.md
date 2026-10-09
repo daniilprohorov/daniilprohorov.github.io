@@ -4,25 +4,32 @@
 
 - `images/vmlinuz` — the kernel from the official 32-bit Tiny Core `Core-17.1.iso` (MD5-checked).
 - `images/desktop.gz` — the ISO's `core.gz` followed by a second gzipped cpio archive with the
-  extensions `Xvesa`, `icewm`, `aterm`, `flaxpdf` (PDF viewer), `idesk` (desktop icons) and all
+  extensions `Xvesa`, `twm`, `xsetroot`, `tk8.6` (the dock), `aterm`, `flaxpdf` (PDF viewer),
+  `idesk` (desktop icons) and all
   their dependencies (resolved from the `.dep` files of the official 17.x x86 repository, each
   `.tcz` MD5-checked) plus `overlay/` and `assets/cv.pdf` as `/usr/local/share/cv/cv.pdf`. The
   kernel unpacks both archives, so nothing is downloaded at boot. Changing `assets/cv.pdf` needs
   a rebuild.
 
 Boot flow in the guest: `overlay/opt/bootsync.sh` runs the extensions' `tce.installed` scripts in
-dependency order (what `tce-load` would do: `Xserver`, `desktop`, IceWM menus, caches) and opens
-`/dev/ttyS0` to the desktop user; then autologin on tty1 runs `startx`, which starts Xvesa
-(1024x768x32) with stock IceWM. `overlay/usr/local/share/icewm/` replaces the stock example `menu`
-and `toolbar` (they list programs the image lacks): both hold only `Bike Geometry`
-(`open-webapp bike-geometry`) and `xterm` (aterm); `preferences` keeps the stock Tiny Core values
-but puts the taskbar at the bottom and hides the built-in Settings submenu and the Help item.
-At login IceWM runs `overlay/usr/local/share/icewm/startup`: it turns off X pointer acceleration
-(`xset m 1 1`, so v86's relative mouse deltas map 1:1), links the CV to `~/Desktop/cv.pdf` and
-starts idesk. Its icons, opened by double-click: `overlay/etc/skel/.idesktop/cv.lnk` (the CV in
-FlaxPDF) and `bike-geometry.lnk` (`open-webapp bike-geometry`, icon
-`overlay/usr/local/share/pixmaps/bike-geometry.png`). The page locks the pointer on click on the
-screen (Esc releases it).
+dependency order (what `tce-load` would do: `Xserver`, `desktop`, caches) and opens `/dev/ttyS0`
+to the desktop user; then autologin on tty1 runs `startx`, which starts Xvesa at the `xvesa=` boot
+option from `desktop.js` (1024x768x32, since FlaxPDF rejects 16-bit visuals; the page shows it
+1:1) with twm.
+
+`overlay/etc/skel/.twmrc`: stock twm look in greys, new windows placed without the rubber-band
+prompt, the `xlogo` title button closes a window, and the Icon Manager is a taskbar along the
+bottom edge (click an entry to iconify/restore). Left click on the root opens a menu with
+`Bike Geometry`, `cv.pdf`, `xterm` (aterm) and `Restart twm`.
+
+`~/.xsession` sources `overlay/etc/skel/.X.d/desktop` after twm starts: it turns off X pointer
+acceleration (`xset m 1 1`, so v86's relative mouse deltas map 1:1), paints the root grey, links
+the CV to `~/Desktop/cv.pdf` and starts idesk and the dock. The dock,
+`overlay/usr/local/bin/dock` (Tk), is an override-redirect column in the top-right corner: a clock
+and buttons for the same three programs. idesk icons, opened by double-click:
+`overlay/etc/skel/.idesktop/cv.lnk` (the CV in FlaxPDF) and `bike-geometry.lnk`
+(`open-webapp bike-geometry`, icon `overlay/usr/local/share/pixmaps/bike-geometry.png`). The page
+locks the pointer on click on the screen (Esc releases it).
 
 `overlay/usr/local/bin/open-webapp <id>` writes `OPEN:<id>` to `/dev/ttyS0`; the page maps the ID
 to a route (see `desktop.js`).

@@ -1,3 +1,0 @@
-# Taskbar launch buttons; no icon, so the button shows its label.
-prog "Bike Geometry" - open-webapp bike-geometry
-prog xterm xterm xterm
