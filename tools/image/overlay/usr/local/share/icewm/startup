@@ -1,0 +1,6 @@
+#!/bin/sh
+# Run by icewm-session at login: links the CV onto the desktop and starts
+# idesk, which draws the icons from ~/.idesktop.
+mkdir -p "$HOME/Desktop"
+ln -sf /usr/local/share/cv/cv.pdf "$HOME/Desktop/cv.pdf"
+idesk &

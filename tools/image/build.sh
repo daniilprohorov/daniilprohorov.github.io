@@ -11,7 +11,7 @@ VERSION=17.1
 MIRROR=http://tinycorelinux.net/17.x/x86
 ISO=Core-$VERSION.iso
 ISO_MD5=8d5efae4cbf4ba463fa012d29e58918e
-EXTENSIONS="Xvesa icewm aterm"
+EXTENSIONS="Xvesa icewm aterm flaxpdf idesk"
 # Fixed mtime for everything in the appended archive (2025-07-16, the core.gz date).
 EPOCH=1752624000
 
@@ -81,11 +81,29 @@ for path in $(cd "$OVERLAY" && find . -type f | sed 's|^\.||'); do
   if [ -x "$OVERLAY$path" ]; then mode=-rwxr-xr-x; else mode=-rw-r--r--; fi
   echo "$mode 0/0 0 - - $path" >>"$LISTING"
 done
+# Directories the overlay adds that neither core.gz nor an extension has.
+for dir in /etc/skel/.idesktop /usr/local/share/cv; do
+  echo "drwxr-xr-x 0/0 0 - - $dir" >>"$LISTING"
+done
+# The CV the desktop icon opens, from the site's own copy.
+mkdir -p "$STAGE/usr/local/share/cv"
+cp "$ROOT/assets/cv.pdf" "$STAGE/usr/local/share/cv/cv.pdf"
+echo "-rw-r--r-- 0/0 0 - - /usr/local/share/cv/cv.pdf" >>"$LISTING"
 
 # Paths core.gz already has: its directories keep their owner and mode.
 gzip -dc "$WORK/boot/core.gz" | bsdtar -tf - | sed 's|^\./||; s|/$||; s|^|/|' >"$WORK/core-paths"
 # The listing as an mtree manifest; the last entry for a path wins.
-awk -v stage="$STAGE" -v epoch="$EPOCH" '
+LC_ALL=C awk -v stage="$STAGE" -v epoch="$EPOCH" '
+  BEGIN { for (i = 1; i < 256; i++) ord[sprintf("%c", i)] = i }
+  # mtree path syntax: bytes outside printable ASCII, "\" and "#" as \ooo.
+  function esc(s,   out, i, c, n) {
+    out = ""
+    for (i = 1; i <= length(s); i++) {
+      c = substr(s, i, 1); n = ord[c]
+      out = out ((n < 33 || n > 126 || c == "\\" || c == "#") ? sprintf("\\%03o", n) : c)
+    }
+    return out
+  }
   function octal(perm,   m, i, c) {
     m = 0
     for (i = 2; i <= 10; i++) {
@@ -102,13 +120,12 @@ awk -v stage="$STAGE" -v epoch="$EPOCH" '
   $6 == "" { next }
   {
     path = $6
-    if (path ~ /[\\#]/) fail("unsupported path " path)
     split($2, owner, "/")
     type = substr($1, 1, 1)
     attrs = "uid=" owner[1] " gid=" owner[2] " mode=" octal($1) " time=" epoch
     if (type == "d") { if (!(path in core)) entry[path] = "type=dir " attrs }
-    else if (type == "-") entry[path] = "type=file " attrs " contents=" stage path
-    else if (type == "l" && $7 == "->" && NF == 8) entry[path] = "type=link " attrs " link=" $8
+    else if (type == "-") entry[path] = "type=file " attrs " contents=" esc(stage path)
+    else if (type == "l" && $7 == "->" && NF == 8) entry[path] = "type=link " attrs " link=" esc($8)
     else fail("unsupported entry " $0)
   }
   END {
@@ -116,7 +133,7 @@ awk -v stage="$STAGE" -v epoch="$EPOCH" '
     for (p in entry) {
       parent = p; sub(/\/[^\/]*$/, "", parent)
       if (parent != "" && !(parent in entry) && !(parent in core)) fail("no parent directory for " p)
-      print "." p " " entry[p]
+      print "." esc(p) " " entry[p]
     }
   }
 ' "$WORK/core-paths" "$LISTING" >"$WORK/entries"
