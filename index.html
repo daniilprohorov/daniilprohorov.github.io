@@ -4,11 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Daniil Prohorov — проекты</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; color: #ccc; }
+    body { display: flex; align-items: center; justify-content: center; }
+    #screen_container > div { white-space: pre; font: 14px monospace; line-height: 14px; }
+    noscript { font-family: sans-serif; }
+    noscript a { color: #8cf; }
+  </style>
 </head>
 <body>
-  <h1>Проекты</h1>
-  <ul>
-    <li><a href="./bikeGeometry/">bikeGeometry</a></li>
-  </ul>
+  <noscript>
+    <h1>Проекты</h1>
+    <ul>
+      <li><a href="./bikeGeometry/">Bike Geometry</a></li>
+    </ul>
+  </noscript>
+  <div id="screen_container">
+    <div></div>
+    <canvas style="display: none"></canvas>
+  </div>
+  <script src="/v86/libv86.js"></script>
+  <script src="/desktop.js"></script>
 </body>
 </html>
