@@ -1,0 +1,5 @@
+#!/bin/sh
+# open-webapp <id>: asks the page running this VM to open web app <id>.
+# The page reads OPEN:<id> lines from COM1 and maps known ids to site routes.
+[ $# -eq 1 ] || { echo "usage: open-webapp <id>" >&2; exit 2; }
+printf 'OPEN:%s\n' "$1" > /dev/ttyS0
