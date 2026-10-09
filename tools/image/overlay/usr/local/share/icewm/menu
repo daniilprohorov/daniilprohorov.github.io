@@ -1,0 +1,3 @@
+# Root menu (replaces the stock example, which lists programs the image lacks).
+prog "Bike Geometry" - open-webapp bike-geometry
+prog xterm xterm xterm

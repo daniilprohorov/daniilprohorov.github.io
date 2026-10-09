@@ -4,14 +4,22 @@
 
 - `images/vmlinuz` — the kernel from the official 32-bit Tiny Core `Core-17.1.iso` (MD5-checked).
 - `images/desktop.gz` — the ISO's `core.gz` followed by a second gzipped cpio archive with the
-  extensions `Xvesa`, `icewm`, `aterm` and all their dependencies (resolved from the `.dep` files
-  of the official 17.x x86 repository, each `.tcz` MD5-checked) plus `overlay/`. The kernel unpacks
-  both archives, so nothing is downloaded at boot.
+  extensions `Xvesa`, `icewm`, `aterm`, `flaxpdf` (PDF viewer), `idesk` (desktop icons) and all
+  their dependencies (resolved from the `.dep` files of the official 17.x x86 repository, each
+  `.tcz` MD5-checked) plus `overlay/` and `assets/cv.pdf` as `/usr/local/share/cv/cv.pdf`. The
+  kernel unpacks both archives, so nothing is downloaded at boot. Changing `assets/cv.pdf` needs
+  a rebuild.
 
 Boot flow in the guest: `overlay/opt/bootsync.sh` runs the extensions' `tce.installed` scripts in
 dependency order (what `tce-load` would do: `Xserver`, `desktop`, IceWM menus, caches) and opens
 `/dev/ttyS0` to the desktop user; then autologin on tty1 runs `startx`, which starts Xvesa
-(1024x768x32) with stock IceWM. The first IceWM menu entry, `xterm`, opens aterm.
+(1024x768x32) with stock IceWM. `overlay/usr/local/share/icewm/` replaces the stock example `menu`
+and `toolbar` (they list programs the image lacks): both hold only `Bike Geometry`
+(`open-webapp bike-geometry`) and `xterm` (aterm); `preferences` keeps the stock Tiny Core values
+and hides the built-in Settings submenu and the Help item.
+At login IceWM runs `overlay/usr/local/share/icewm/startup`: it links the CV to `~/Desktop/cv.pdf`
+and starts idesk, whose icon (`overlay/etc/skel/.idesktop/cv.lnk`) opens it in FlaxPDF on
+double-click.
 
 `overlay/usr/local/bin/open-webapp <id>` writes `OPEN:<id>` to `/dev/ttyS0`; the page maps the ID
 to a route (see `desktop.js`).

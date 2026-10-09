@@ -51,3 +51,24 @@ v86: релиз `latest` с GitHub (коммит `6db8b157974dbaf1b54d2c2ec12dd7
 | `images/desktop.gz` (`core.gz` 14 122 569 + расширения 9 870 011) | 23 992 580 |
 | **Образ (ядро + initrd)** | **30 108 420 (28.71 MiB)** |
 | **Итого `/`** | **32 645 352 (31.13 MiB)** |
+
+## 04: Пункт меню IceWM и кнопка панели «Bike Geometry»
+
+`tools/image/overlay/usr/local/share/icewm/` (IceWM в TC 17.x читает конфиг только отсюда; `tce.installed/icewm` копирует стоковые файлы, лишь если их нет):
+
+- `menu` и `toolbar` — вместо стоковых примеров (fte, NEdit, Mozilla, Netscape и т. п., которых в образе нет): `prog "Bike Geometry" - open-webapp bike-geometry` и `prog xterm xterm xterm`. Без иконки кнопка панели показывает подпись «Bike Geometry».
+- `preferences` — стоковые значения TC (`TaskBarAtTop`, `WorkspaceNames`) плюс `ShowSettingsMenu=0` и `ShowHelp=0` (встроенное подменю Settings и Help без документации). В корневом меню остались: Bike Geometry, xterm, Windows, Logout.
+
+Проверено вручную одноразовым Playwright-скриптом (headless Chromium, клики мышью через `emulator.bus` `mouse-delta`/`mouse-click`, скрипт удалён): панель IceWM появляется через ~35 с; клик по пункту меню → `/bikeGeometry/`, `#root` отрисован; «Назад» → `/`, Linux загружается заново, клик по кнопке панели → `/bikeGeometry/`; ещё раз «Назад» и кнопка — снова работает.
+
+Размеры с образом, включающим изменения владельца (иконка CV: `flaxpdf`, `idesk`, `assets/cv.pdf`):
+
+| Файл | Размер |
+|---|---:|
+| `index.html` | 865 |
+| `desktop.js` | 1 471 |
+| `v86/` (эмулятор + BIOS) | 2 534 596 |
+| `images/vmlinuz` | 6 115 840 |
+| `images/desktop.gz` (`core.gz` 14 122 569 + расширения и overlay 19 163 906) | 33 286 475 |
+| **Образ (ядро + initrd)** | **39 402 315 (37.58 MiB)** |
+| **Итого `/`** | **41 939 247 (40.00 MiB)** |
