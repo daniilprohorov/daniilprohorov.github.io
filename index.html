@@ -9,8 +9,8 @@
     body { display: flex; align-items: center; justify-content: center; }
     #screen_container > div { white-space: pre; font: 14px monospace; line-height: 14px; }
     /* v86 shrinks the canvas by a fractional devicePixelRatio, while mouse
-       deltas stay in CSS px: size the canvas ourselves. zoom: each guest px
-       is drawn as 2x2 CSS px, kept sharp. */
+       deltas stay in CSS px: size the canvas ourselves. Each guest px is drawn
+       as 2x2 CSS px, kept sharp. */
     #screen_container > canvas { width: auto !important; height: auto !important; zoom: 2; image-rendering: pixelated; }
     noscript { font-family: sans-serif; }
     noscript a { color: #8cf; }
