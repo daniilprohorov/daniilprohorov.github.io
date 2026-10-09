@@ -16,10 +16,13 @@ dependency order (what `tce-load` would do: `Xserver`, `desktop`, IceWM menus, c
 (1024x768x32) with stock IceWM. `overlay/usr/local/share/icewm/` replaces the stock example `menu`
 and `toolbar` (they list programs the image lacks): both hold only `Bike Geometry`
 (`open-webapp bike-geometry`) and `xterm` (aterm); `preferences` keeps the stock Tiny Core values
-and hides the built-in Settings submenu and the Help item.
-At login IceWM runs `overlay/usr/local/share/icewm/startup`: it links the CV to `~/Desktop/cv.pdf`
-and starts idesk, whose icon (`overlay/etc/skel/.idesktop/cv.lnk`) opens it in FlaxPDF on
-double-click.
+but puts the taskbar at the bottom and hides the built-in Settings submenu and the Help item.
+At login IceWM runs `overlay/usr/local/share/icewm/startup`: it turns off X pointer acceleration
+(`xset m 1 1`, so v86's relative mouse deltas map 1:1), links the CV to `~/Desktop/cv.pdf` and
+starts idesk. Its icons, opened by double-click: `overlay/etc/skel/.idesktop/cv.lnk` (the CV in
+FlaxPDF) and `bike-geometry.lnk` (`open-webapp bike-geometry`, icon
+`overlay/usr/local/share/pixmaps/bike-geometry.png`). The page locks the pointer on click on the
+screen (Esc releases it).
 
 `overlay/usr/local/bin/open-webapp <id>` writes `OPEN:<id>` to `/dev/ttyS0`; the page maps the ID
 to a route (see `desktop.js`).

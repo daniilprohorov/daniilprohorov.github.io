@@ -1,0 +1,9 @@
+table Icon
+  Caption: Bike Geometry
+  Command: open-webapp bike-geometry
+  Icon: /usr/local/share/pixmaps/bike-geometry.png
+  Width: 64
+  Height: 64
+  X: 30
+  Y: 130
+end

@@ -14,11 +14,20 @@ window.emulator = new V86({
     vga_bios: { url: "/v86/vgabios.bin" },
     bzimage: { url: "/images/vmlinuz" },
     initrd: { url: "/images/desktop.gz" },
-    cmdline: "console=ttyS0 console=tty0 loglevel=3 base norestore noswap",
+    // xvesa=: Tiny Core boot option, substituted into ~/.xsession. index.html
+    // draws each guest pixel as 2x2 CSS px.
+    cmdline: "console=ttyS0 console=tty0 loglevel=3 base norestore noswap xvesa=640x480x16",
     memory_size: 256 * 1024 * 1024,
     vga_memory_size: 8 * 1024 * 1024,
     screen_container: document.getElementById("screen_container"),
     autostart: true,
+});
+
+// Without pointer lock the host cursor and the guest cursor drift apart: the
+// guest only gets relative deltas. Clicking the screen captures the mouse
+// (Esc releases it).
+document.getElementById("screen_container").addEventListener("click", () => {
+    if (document.pointerLockElement === null) window.emulator.lock_mouse();
 });
 
 function handleSerialLine(line) {

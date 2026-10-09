@@ -1,6 +1,8 @@
 #!/bin/sh
-# Run by icewm-session at login: links the CV onto the desktop and starts
-# idesk, which draws the icons from ~/.idesktop.
+# Run by icewm-session at login. v86 feeds the guest raw relative mouse deltas,
+# so X pointer acceleration is turned off to keep 1:1 movement. Then links the
+# CV onto the desktop and starts idesk, which draws the icons from ~/.idesktop.
+xset m 1 1
 mkdir -p "$HOME/Desktop"
 ln -sf /usr/local/share/cv/cv.pdf "$HOME/Desktop/cv.pdf"
 idesk &
