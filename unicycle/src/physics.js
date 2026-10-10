@@ -31,6 +31,7 @@ export const DEFAULT_PARAMS = {
   hipSoftSpeed: 4,     // m/s, horizontal speed at which the hip reaches its fast, soft setting
   hipDriveSlow: 30,    // N·m, hip torque per pedal input near rest: → pitches the torso forward (+)
   hipDriveFast: -30,   // N·m, the same from hipSoftSpeed up: → throws the torso back (−)
+  hipManualAngle: 0.26, // rad (≈ 15°), hip spring setpoint (torsoTheta − theta) per manual torso input (`hip` in step): + forward
   maxHipTorque: 90,    // N·m, spring/damper torque limit (equal and opposite on both links)
   pedalAccel: 5,       // m/s² target axle acceleration from held pedals
   pedalAccelMax: 8,    // m/s² target when pushing toward a lean of leanForMaxBoost or more
@@ -142,21 +143,24 @@ function solve(matrix, rhs, n = rhs.length) {
 /** Hip spring, damper and the rider's hip drive at horizontal speed `speed` with pedal `input`:
  *  stiff near rest, soft from hipSoftSpeed up, blended with a smoothstep. The drive follows the
  *  player's key only (no lean feedback): near rest → bends the torso forward, at speed back.
+ *  In manual mode (`hip` ∈ {-1, 0, 1}, not null) the hip keeps its rest stiffness at any speed and the
+ *  pedals don't drive it: instead the spring's setpoint moves to `hip · hipManualAngle`.
  *  Internal only: both links get equal and opposite torques. */
-export function hipGains(speed, p, input = 0) {
-  const x = Math.min(1, Math.abs(speed) / p.hipSoftSpeed), w = x * x * (3 - 2 * x);
+export function hipGains(speed, p, input = 0, hip = null) {
+  const x = hip === null ? Math.min(1, Math.abs(speed) / p.hipSoftSpeed) : 0, w = x * x * (3 - 2 * x);
   return { k: p.hipStiffness + (p.hipStiffnessFast - p.hipStiffness) * w,
     c: p.hipDamping + (p.hipDampingFast - p.hipDamping) * w,
-    drive: input * (p.hipDriveSlow + (p.hipDriveFast - p.hipDriveSlow) * w) };
+    drive: hip === null ? input * (p.hipDriveSlow + (p.hipDriveFast - p.hipDriveSlow) * w) : 0,
+    target: hip === null ? 0 : hip * p.hipManualAngle };
 }
 
 /** Backward spring/damper forces are part of the SAME mass solve, not a torso response after
  *  integrating the pelvis. A saturated hip torque is re-solved as a bounded internal force. */
-function jointAccelerations(metric, force, s, dt, p, lowerIndex, speed, input, locked = false) {
+function jointAccelerations(metric, force, s, dt, p, lowerIndex, speed, input, hip, locked = false) {
   const upperIndex = lowerIndex + 1, legIndex = upperIndex + 1;
-  const { k, c, drive } = hipGains(speed, p, input);
+  const { k, c, drive, target } = hipGains(speed, p, input, hip);
   const hipDrag = c + k * dt;
-  const hip0 = drive - k * (s.torsoTheta - s.theta) - hipDrag * (s.torsoOmega - s.omega);
+  const hip0 = drive - k * (s.torsoTheta - s.theta - target) - hipDrag * (s.torsoOmega - s.omega);
   const legImplicit = (p.legDamping + p.legStiffness * dt) * dt;
   const compute = (fixedHip) => {
     const a = metric.map((row) => row.slice()), q = force.slice();
@@ -179,20 +183,20 @@ function jointAccelerations(metric, force, s, dt, p, lowerIndex, speed, input, l
     acc = compute(hipTau);
   }
   if (!locked && s.leg <= p.legMin && s.legV <= 0 && acc[legIndex] < 0) {
-    return jointAccelerations(metric, force, s, dt, p, lowerIndex, speed, input, true);
+    return jointAccelerations(metric, force, s, dt, p, lowerIndex, speed, input, hip, true);
   }
   return { acc, hipTau };
 }
 
 /** Inverse contact dynamics at a commanded axle acceleration. Eliminating pedal torque leaves
  *  one simultaneous solve for both angular accelerations and the legs, including joint limits. */
-function contactTorque(metric, force, s, acceleration, dt, p, input) {
+function contactTorque(metric, force, s, acceleration, dt, p, input, hip) {
   const R = p.wheelRadius;
   const shape = metric.slice(1).map((row, i) => row.slice(1).map((value, j) =>
     value + (i === 0 ? R * metric[0][j + 1] : 0)));
   const rhs = force.slice(1).map((value, i) => value - metric[i + 1][0] * acceleration
     - (i === 0 ? R * (metric[0][0] * acceleration - force[0]) : 0));
-  const { acc } = jointAccelerations(shape, rhs, s, dt, p, 0, s.v, input);
+  const { acc } = jointAccelerations(shape, rhs, s, dt, p, 0, s.v, input, hip);
   return R * (metric[0][0] * acceleration - force[0]
     + metric[0][1] * acc[0] + metric[0][2] * acc[1] + metric[0][3] * acc[2]);
 }
@@ -212,7 +216,7 @@ function shapeMomentum(s, metric) {
     + (metric[0][2] + metric[1][2]) * s.legV;
 }
 
-function fly(s, vx, vy, spin, input, dt, lSet, p) {
+function fly(s, vx, vy, spin, input, hip, dt, lSet, p) {
   const m = links(s, p), metric = flightMetric(m, p), old = comOffset(s, m, p);
   const Iw = p.wheelMass * p.wheelRadius ** 2;
   const { tau, cmd } = pedalTorque(s, p.wheelRadius * spin, input, dt, p, (acc) => Iw * acc / p.wheelRadius);
@@ -225,7 +229,7 @@ function fly(s, vx, vy, spin, input, dt, lSet, p) {
       + rho * (m.A * s.omega ** 2 + m.B * s.torsoOmega ** 2 * m.cd),
   ];
   // the joint's speed is the centre of mass's horizontal speed, constant in flight
-  const { acc, hipTau } = jointAccelerations(metric, force, s, dt, p, 0, vx + old.vx, input);
+  const { acc, hipTau } = jointAccelerations(metric, force, s, dt, p, 0, vx + old.vx, input, hip);
   const next = { ...s, airborne: true, omega: s.omega + acc[0] * dt, torsoOmega: s.torsoOmega + acc[1] * dt,
     legV: s.legV + acc[2] * dt, wheelOmega: spin + tau * dt / Iw, tau, hipTau, acc: tau * p.wheelRadius / Iw, accCmd: cmd };
   next.theta += (s.omega + next.omega) * dt / 2;
@@ -247,9 +251,10 @@ function fly(s, vx, vy, spin, input, dt, lSet, p) {
   return next;
 }
 
-/** Advance jointly coupled contact/flight physics. Only the input and jump setpoints are active
- *  controls; joint springs/dampers act internally and the ground can push but never pull. */
-export function step(s, input, jump, dt, p = DEFAULT_PARAMS) {
+/** Advance jointly coupled contact/flight physics. Only the input, jump and (manual mode) hip
+ *  setpoints are active controls; joint springs/dampers act internally and the ground can push but
+ *  never pull. `hip` null: the pedal input also drives the hip; −1/0/1: manual torso drive. */
+export function step(s, input, jump, dt, p = DEFAULT_PARAMS, hip = null) {
   const R = p.wheelRadius;
   let lSet = p.bodyCom;
   if (s.push <= 0 && jump) {
@@ -285,14 +290,14 @@ export function step(s, input, jump, dt, p = DEFAULT_PARAMS) {
     // Both links remain dynamic: no angle, angular velocity or hip target is prescribed.
     const slopeAcc = -m.M * G * sb / (m.M + p.wheelMass);
     const { tau, cmd } = pedalTorque(s, s.v, input, dt, p,
-      (a) => contactTorque(metric, force, s, a, dt, p, input), slopeAcc);
+      (a) => contactTorque(metric, force, s, a, dt, p, input, hip), slopeAcc);
     force[0] += tau / R; force[1] -= tau;
-    const { acc, hipTau } = jointAccelerations(metric, force, s, dt, p, 1, s.v, input);
+    const { acc, hipTau } = jointAccelerations(metric, force, s, dt, p, 1, s.v, input, hip);
     const [a, alpha, torsoAlpha, ldd] = acc;
     const normal = m.M * (G * cb + centripetal) + p.bodyMass * ldd * ct
       - (2 * p.bodyMass * s.legV * s.omega + m.A * alpha) * st
       - m.B * torsoAlpha * su - m.A * s.omega ** 2 * ct - m.B * s.torsoOmega ** 2 * cu;
-    const free = normal < 0 ? fly(s, s.v * cb, s.v * sb, s.v / R, input, dt, lSet, p) : null;
+    const free = normal < 0 ? fly(s, s.v * cb, s.v * sb, s.v / R, input, hip, dt, lSet, p) : null;
     if (free && !cutsTrack(p.track, free.x, free.y, R)) {
       Object.assign(s, free);
     } else {
@@ -306,7 +311,7 @@ export function step(s, input, jump, dt, p = DEFAULT_PARAMS) {
     }
   } else {
     const x0 = s.x, y0 = s.y;
-    Object.assign(s, fly(s, s.v, s.vy, s.wheelOmega, input, dt, lSet, p));
+    Object.assign(s, fly(s, s.v, s.vy, s.wheelOmega, input, hip, dt, lSet, p));
     touchDown(s, x0, y0, p);
   }
   if (s.leg <= p.legMin && s.legV < 0) bottomOut(s, p);

@@ -14,6 +14,7 @@ export class UnicycleGame {
     container.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d');
     this.keys = new Set();
+    this.manual = false; // manual torso mode (M): arrows pedal, A/D drive the hip
     this.menu = true; // start screen: pick a level (↑/↓ or click), Enter/Space/click starts; Esc in game returns here
     this.levels = null; // [{ name, points: [[x, y], …], start, finish }], fetched from levelUrls
     this.level = null; // the level picked in the menu (selectLevel)
@@ -34,7 +35,8 @@ export class UnicycleGame {
       // the key that started the game (Space is also jump) does nothing until it is released
       if (e.code === this._startKey) { e.preventDefault(); if (e.type === 'keyup') this._startKey = null; return; }
       if (e.type === 'keydown' && !this.menu && e.code === 'Escape') { e.preventDefault(); this.menu = true; this.keys.clear(); return; }
-      const k = KEY_MAP[e.code];
+      if (e.code === 'KeyM') { e.preventDefault(); if (e.type === 'keydown' && !e.repeat) { this.manual = !this.manual; this.keys.clear(); } return; }
+      const k = (this.manual ? MANUAL_KEY_MAP : KEY_MAP)[e.code];
       if (!k) return;
       e.preventDefault();
       e.type === 'keydown' ? this.keys.add(k) : this.keys.delete(k);
@@ -139,12 +141,14 @@ export class UnicycleGame {
     if (this.menu) return;
     if (this.s.fallen) { this.reset(); return; } // restart immediately, stay in game
     const input = (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
+    // manual mode: A/D drive the torso at the hip; otherwise the pedals also drive it (hip = null)
+    const hip = this.manual ? (this.keys.has('torsoForward') ? 1 : 0) - (this.keys.has('torsoBack') ? 1 : 0) : null;
     const jump = this.keys.has('jump');
     const H = 1 / 240;
     this.acc += dt * this.p.timeScale;
     while (this.acc >= H && !this.s.fallen && !this.s.finished) {
       const airborne = this.s.airborne;
-      step(this.s, input, jump, H, this.p);
+      step(this.s, input, jump, H, this.p, hip);
       this.acc -= H;
       // 60 Hz samples + every pedal input change, take-off and touchdown
       if (this.stepCount++ % 4 === 0 || input !== this.lastInput || airborne !== this.s.airborne) this.record(input);
@@ -169,7 +173,7 @@ export class UnicycleGame {
   render() {
     render(this.ctx, { w: this.w, h: this.h, dpr: this.dpr }, this.s, this.p, {
       menu: this.menu, levels: this.levels, level: this.level,
-      levelIndex: this.levelIndex, bestTimes: this.bestTimes,
+      levelIndex: this.levelIndex, bestTimes: this.bestTimes, manual: this.manual,
       result: this.result, levelError: this.levelError,
     });
   }
@@ -177,6 +181,11 @@ export class UnicycleGame {
 
 const KEY_MAP = {
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
+  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump',
+};
+// Manual mode (M toggles): arrows pedal, A/D drive the torso back/forward at the hip.
+const MANUAL_KEY_MAP = {
+  ArrowLeft: 'left', ArrowRight: 'right', KeyA: 'torsoBack', KeyD: 'torsoForward',
   ArrowUp: 'jump', KeyW: 'jump', Space: 'jump',
 };
 
