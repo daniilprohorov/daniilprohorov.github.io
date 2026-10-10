@@ -1,9 +1,0 @@
-table Icon
-  Caption: cv.pdf
-  Command: flaxpdf /home/tc/Desktop/cv.pdf
-  Icon: /usr/local/share/flaxpdf/icon64.png
-  Width: 64
-  Height: 64
-  X: 30
-  Y: 30
-end

@@ -1,9 +1,0 @@
-# Sourced by ~/.xsession after twm starts. v86 feeds the guest raw relative
-# mouse deltas, so X pointer acceleration is turned off to keep 1:1 movement.
-# Then: grey root, the CV on the desktop, idesk icons and the dock.
-xset m 1 1
-xsetroot -solid gray50
-mkdir -p "$HOME/Desktop"
-ln -sf /usr/local/share/cv/cv.pdf "$HOME/Desktop/cv.pdf"
-idesk &
-dock &

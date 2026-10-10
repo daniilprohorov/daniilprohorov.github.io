@@ -5,28 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Daniil Prohorov — проекты</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #000; color: #ccc; }
-    body { display: flex; align-items: center; justify-content: center; }
-    #screen_container > div { white-space: pre; font: 14px monospace; line-height: 14px; }
-    /* v86 shrinks the canvas by a fractional devicePixelRatio, while mouse
-       deltas stay in CSS px: size the canvas ourselves, one guest px per CSS px. */
-    #screen_container > canvas { width: auto !important; height: auto !important; image-rendering: pixelated; }
-    noscript { font-family: sans-serif; }
-    noscript a { color: #8cf; }
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }
+    a { color: #06c; }
   </style>
 </head>
 <body>
-  <noscript>
-    <h1>Проекты</h1>
-    <ul>
-      <li><a href="./bikeGeometry/">Bike Geometry</a></li>
-    </ul>
-  </noscript>
-  <div id="screen_container">
-    <div></div>
-    <canvas style="display: none"></canvas>
-  </div>
-  <script src="/v86/libv86.js"></script>
-  <script src="/desktop.js"></script>
+  <h1>Daniil Prohorov</h1>
+  <h2>Проекты</h2>
+  <ul>
+    <li><a href="./bikeGeometry/">Bike Geometry</a></li>
+    <li><a href="./unicycle/">Unicycle</a></li>
+  </ul>
+  <p><a href="./assets/cv.pdf">CV (PDF)</a></p>
 </body>
 </html>
