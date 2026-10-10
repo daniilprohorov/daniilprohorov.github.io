@@ -85,7 +85,7 @@ export function render(ctx, viewport, s, p, ui) {
   const best = ui.level && ui.bestTimes[ui.level.name];
   if (ui.level) ctx.fillText(`${ui.level.name}   Time: ${s.t.toFixed(2)} s   Best: ${best ? best.toFixed(2) + ' s' : '—'}   To the finish: ${Math.max(0, p.finish - s.x).toFixed(0)} m`, 12, 22);
   ctx.fillText(ui.mobile
-    ? 'MOBILE: tilt the phone — pedal,  JUMP button — jump (hold to charge)'
+    ? 'MOBILE: ◀ ▶ buttons — pedal,  JUMP button — jump (hold to charge)'
     : ui.manual
       ? 'MANUAL: ← → — pedal,  A D — torso back/forward,  ↑ / W / Space — jump,  M — auto mode,  L — log (CSV)'
       : '← → / A D — pedal,  ↑ / W / Space — jump (hold to charge),  M — manual torso mode,  L — download physics log (CSV)', 12, 42);

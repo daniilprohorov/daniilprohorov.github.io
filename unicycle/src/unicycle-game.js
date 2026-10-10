@@ -13,9 +13,7 @@ export class UnicycleGame {
     this.canvas.tabIndex = 0; // receives keys only when focused — safe to embed
     container.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d');
-    this.mobile = false; // mobile mode (top-right toggle, never automatic): tilt pedals, on-screen jump button
-    this.tilt = null;    // device tilt across the screen, deg (+ = right edge down); null until a sensor event
-    this.tiltZero = 0;   // tilt at the start of the run counts as neutral
+    this.mobile = false; // mobile mode (top-right toggle, never automatic): on-screen ◀ JUMP ▶ buttons
     this.keys = new Set();
     this.manual = false; // manual torso mode (M): arrows pedal, A/D drive the hip
     this.menu = true; // start screen: pick a level (↑/↓ or click), Enter/Space/click starts; Esc in game returns here
@@ -77,7 +75,6 @@ export class UnicycleGame {
     this.reset(); // every start is a fresh attempt, with its own `run` number in the log
     this.menu = false;
     this.result = null;
-    this.tiltZero = this.tilt ?? 0;
     this._syncControls();
   }
 
@@ -88,7 +85,7 @@ export class UnicycleGame {
     this._syncControls();
   }
 
-  /** DOM overlay: menu button (top-left), mobile-mode toggle (top-right), jump bar (bottom centre). */
+  /** DOM overlay: menu button (top-left), mobile-mode toggle (top-right), ◀ JUMP ▶ bar (bottom centre). */
   _buildControls(container) {
     if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
     this.canvas.style.touchAction = 'none';
@@ -100,48 +97,35 @@ export class UnicycleGame {
     box.type = 'checkbox';
     box.addEventListener('change', () => this.setMobile(box.checked));
     this.mobileToggle.append(box, 'Mobile version');
-    this.jumpButton = el('button', `${btn};left:50%;bottom:16px;transform:translateX(-50%);width:min(60vw,480px);height:72px;font-size:22px`, 'JUMP');
-    const press = (on) => (e) => { e.preventDefault(); on ? this.keys.add('jump') : this.keys.delete('jump'); };
-    this.jumpButton.addEventListener('pointerdown', (e) => { this.jumpButton.setPointerCapture(e.pointerId); press(true)(e); });
-    for (const t of ['pointerup', 'pointercancel']) this.jumpButton.addEventListener(t, press(false));
-    this.jumpButton.addEventListener('contextmenu', (e) => e.preventDefault());
-    container.append(this.menuButton, this.mobileToggle, this.jumpButton);
-    this._onOrient = (e) => {
-      if (e.beta === null || e.gamma === null) return;
-      // tilt that tips the screen's right edge down, whatever way the phone is held
-      const a = screen.orientation?.angle ?? window.orientation ?? 0;
-      this.tilt = a === 90 ? e.beta : a === -90 || a === 270 ? -e.beta : a === 180 ? -e.gamma : e.gamma;
+    // bottom row: pedal left, jump, pedal right; each holds its key while pressed
+    const pad = `${btn};bottom:16px;height:72px;font-size:22px`;
+    const hold = (b, key) => {
+      const set = (on) => (e) => { e.preventDefault(); on ? this.keys.add(key) : this.keys.delete(key); };
+      b.addEventListener('pointerdown', (e) => { b.setPointerCapture(e.pointerId); set(true)(e); });
+      for (const t of ['pointerup', 'pointercancel']) b.addEventListener(t, set(false));
+      b.addEventListener('contextmenu', (e) => e.preventDefault());
+      return b;
     };
+    this.padButtons = [
+      hold(el('button', `${pad};left:16px;width:calc(25vw - 24px)`, '◀'), 'left'),
+      hold(el('button', `${pad};left:25vw;width:50vw`, 'JUMP'), 'jump'),
+      hold(el('button', `${pad};right:16px;width:calc(25vw - 24px)`, '▶'), 'right'),
+    ];
+    container.append(this.menuButton, this.mobileToggle, ...this.padButtons);
     this._syncControls();
   }
 
   /** Mobile mode is only ever switched by the player (top-right toggle). */
-  async setMobile(on) {
+  setMobile(on) {
     this.mobile = on;
     this.keys.clear();
-    if (on) {
-      // iOS asks for sensor permission; the toggle's click is the required user gesture
-      try { await globalThis.DeviceOrientationEvent?.requestPermission?.(); } catch { /* denied: no tilt */ }
-      window.addEventListener('deviceorientation', this._onOrient);
-    } else {
-      window.removeEventListener('deviceorientation', this._onOrient);
-      this.tilt = null;
-    }
     this._syncControls();
     this.canvas.focus();
   }
 
   _syncControls() {
     this.menuButton.style.display = this.menu ? 'none' : '';
-    this.jumpButton.style.display = this.mobile && !this.menu ? '' : 'none';
-  }
-
-  /** Pedal input from the tilt: proportional past a dead zone, −1..1 in 0.1 steps (keeps log rows sparse). */
-  tiltInput() {
-    if (this.tilt === null) return 0;
-    const d = this.tilt - this.tiltZero;
-    const x = Math.min(1, Math.max(0, Math.abs(d) - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
-    return Math.sign(d) * Math.round(x * 10) / 10;
+    for (const b of this.padButtons) b.style.display = this.mobile && !this.menu ? '' : 'none';
   }
 
   /** The finish line is crossed: record the time, keep it if it is the level's best, back to the menu. */
@@ -194,9 +178,8 @@ export class UnicycleGame {
     clearInterval(this._flushTimer);
     if (this._onHide) { this.telemetry.flushLog(true); window.removeEventListener('pagehide', this._onHide); }
     this._ro.disconnect();
-    window.removeEventListener('deviceorientation', this._onOrient);
     this.canvas.remove();
-    this.menuButton.remove(); this.mobileToggle.remove(); this.jumpButton.remove();
+    this.menuButton.remove(); this.mobileToggle.remove(); this.padButtons.forEach((b) => b.remove());
   }
 
   resize() {
@@ -210,8 +193,7 @@ export class UnicycleGame {
   update(dt) {
     if (this.menu) return;
     if (this.s.fallen) { this.reset(); return; } // restart immediately, stay in game
-    const input = this.mobile ? this.tiltInput()
-      : (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
+    const input = (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
     // manual mode: A/D drive the torso at the hip; otherwise the pedals also drive it (hip = null)
     const hip = this.manual ? (this.keys.has('torsoForward') ? 1 : 0) - (this.keys.has('torsoBack') ? 1 : 0) : null;
     const jump = this.keys.has('jump');
@@ -249,11 +231,6 @@ export class UnicycleGame {
     });
   }
 }
-
-// Mobile mode: device tilt (deg from the run's starting pose) below TILT_DEAD is coasting,
-// TILT_FULL and beyond is a full pedal input.
-const TILT_DEAD = 2;
-const TILT_FULL = 15;
 
 function el(tag, css, text) {
   const e = document.createElement(tag);
