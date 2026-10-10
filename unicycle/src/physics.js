@@ -43,7 +43,7 @@ export const DEFAULT_PARAMS = {
   leanForMaxBoost: 0.35, // rad (≈ 20°), lean at which the boosts above reach full strength
   releaseDecel: 0.5,   // m/s², slower coast-down to zero after release
   accelRiseTime: 0.1,  // s, time for acceleration to go 0 → pedalAccel (and back)
-  maxCadence: 160,     // rpm, cadence at which the legs can no longer push the wheel forward
+  maxCadence: 200,     // rpm, cadence at which the legs can no longer push the wheel forward
   maxPedalTorque: 100, // N·m, leg torque at the cranks from standstill (≈ 800 N on a 0.125 m crank)
   tiltDamping: 10,     // N·m·s/rad, rider stiffness (makes it playable)
   rollingResistance: 0.015, // rolling resistance coefficient (tyre on asphalt)
