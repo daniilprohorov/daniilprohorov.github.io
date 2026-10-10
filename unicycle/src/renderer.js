@@ -79,19 +79,23 @@ export function render(ctx, viewport, s, p, ui) {
 
   drawRider(ctx, s, p, P, scale);
 
-  // HUD
+  // HUD, to the right of the top-left menu button
+  ctx.save(); ctx.translate(110, 0);
   ctx.fillStyle = '#123'; ctx.font = '14px sans-serif'; ctx.textAlign = 'left';
   const best = ui.level && ui.bestTimes[ui.level.name];
   if (ui.level) ctx.fillText(`${ui.level.name}   Time: ${s.t.toFixed(2)} s   Best: ${best ? best.toFixed(2) + ' s' : '—'}   To the finish: ${Math.max(0, p.finish - s.x).toFixed(0)} m`, 12, 22);
-  ctx.fillText(ui.manual
-    ? 'MANUAL: ← → — pedal,  A D — torso back/forward,  ↑ / W / Space — jump,  M — auto mode,  L — log (CSV)'
-    : '← → / A D — pedal,  ↑ / W / Space — jump (hold to charge),  M — manual torso mode,  L — download physics log (CSV)', 12, 42);
+  ctx.fillText(ui.mobile
+    ? 'MOBILE: tilt the phone — pedal,  JUMP button — jump (hold to charge)'
+    : ui.manual
+      ? 'MANUAL: ← → — pedal,  A D — torso back/forward,  ↑ / W / Space — jump,  M — auto mode,  L — log (CSV)'
+      : '← → / A D — pedal,  ↑ / W / Space — jump (hold to charge),  M — manual torso mode,  L — download physics log (CSV)', 12, 42);
   ctx.font = '12px monospace'; ctx.fillStyle = '#345';
   ctx.fillText(`v=${s.v.toFixed(2)} m/s  a=${s.acc.toFixed(2)}  θ=${(s.theta * 180 / Math.PI).toFixed(1)}°  hip=${((s.torsoTheta - s.theta) * 180 / Math.PI).toFixed(1)}°  ω=${s.omega.toFixed(2)}  α=${s.alpha.toFixed(2)}  τ=${s.tau.toFixed(0)} N·m`, 12, 62);
   // jump charge: fills while jump is held, lit orange during the push-off
   ctx.fillText('jump', 12, 82);
   ctx.strokeStyle = '#345'; ctx.lineWidth = 1; ctx.strokeRect(50.5, 72.5, 120, 12);
   ctx.fillStyle = s.push > 0 ? '#ef6c00' : '#1565c0'; ctx.fillRect(52, 74, 117 * s.charge, 9);
+  ctx.restore();
   if (ui.menu) {
     ctx.fillStyle = 'rgba(10,20,30,0.55)'; ctx.fillRect(0, 0, w, h);
     ctx.textAlign = 'center'; ctx.fillStyle = '#fff';

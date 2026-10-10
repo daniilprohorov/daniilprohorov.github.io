@@ -13,6 +13,9 @@ export class UnicycleGame {
     this.canvas.tabIndex = 0; // receives keys only when focused — safe to embed
     container.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d');
+    this.mobile = false; // mobile mode (top-right toggle, never automatic): tilt pedals, on-screen jump button
+    this.tilt = null;    // device tilt across the screen, deg (+ = right edge down); null until a sensor event
+    this.tiltZero = 0;   // tilt at the start of the run counts as neutral
     this.keys = new Set();
     this.manual = false; // manual torso mode (M): arrows pedal, A/D drive the hip
     this.menu = true; // start screen: pick a level (↑/↓ or click), Enter/Space/click starts; Esc in game returns here
@@ -34,7 +37,7 @@ export class UnicycleGame {
       if (e.type === 'keydown' && this.menu && this.levels && (e.code === 'ArrowUp' || e.code === 'ArrowDown')) { e.preventDefault(); this.selectLevel(this.levelIndex + (e.code === 'ArrowUp' ? -1 : 1)); return; }
       // the key that started the game (Space is also jump) does nothing until it is released
       if (e.code === this._startKey) { e.preventDefault(); if (e.type === 'keyup') this._startKey = null; return; }
-      if (e.type === 'keydown' && !this.menu && e.code === 'Escape') { e.preventDefault(); this.menu = true; this.keys.clear(); return; }
+      if (e.type === 'keydown' && !this.menu && e.code === 'Escape') { e.preventDefault(); this.toMenu(); return; }
       if (e.code === 'KeyM') { e.preventDefault(); if (e.type === 'keydown' && !e.repeat) { this.manual = !this.manual; this.keys.clear(); } return; }
       const k = (this.manual ? MANUAL_KEY_MAP : KEY_MAP)[e.code];
       if (!k) return;
@@ -55,6 +58,7 @@ export class UnicycleGame {
     });
     this._ro = new ResizeObserver(this._onResize);
     this._ro.observe(container);
+    this._buildControls(container);
     this.resize();
   }
 
@@ -73,6 +77,71 @@ export class UnicycleGame {
     this.reset(); // every start is a fresh attempt, with its own `run` number in the log
     this.menu = false;
     this.result = null;
+    this.tiltZero = this.tilt ?? 0;
+    this._syncControls();
+  }
+
+  /** Back to the level menu (Esc or the top-left button). */
+  toMenu() {
+    this.menu = true;
+    this.keys.clear();
+    this._syncControls();
+  }
+
+  /** DOM overlay: menu button (top-left), mobile-mode toggle (top-right), jump bar (bottom centre). */
+  _buildControls(container) {
+    if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
+    this.canvas.style.touchAction = 'none';
+    const btn = 'position:absolute;font:bold 16px sans-serif;border:none;border-radius:8px;background:rgba(18,34,51,0.35);color:#fff;user-select:none;-webkit-user-select:none;touch-action:none';
+    this.menuButton = el('button', `${btn};left:10px;top:10px;padding:8px 14px`, '☰ Menu');
+    this.menuButton.addEventListener('click', () => { this.toMenu(); this.canvas.focus(); });
+    this.mobileToggle = el('label', `${btn};right:10px;top:10px;padding:8px 14px;display:flex;gap:8px;align-items:center;cursor:pointer`, '');
+    const box = el('input', 'width:20px;height:20px;margin:0', '');
+    box.type = 'checkbox';
+    box.addEventListener('change', () => this.setMobile(box.checked));
+    this.mobileToggle.append(box, 'Mobile version');
+    this.jumpButton = el('button', `${btn};left:50%;bottom:16px;transform:translateX(-50%);width:min(60vw,480px);height:72px;font-size:22px`, 'JUMP');
+    const press = (on) => (e) => { e.preventDefault(); on ? this.keys.add('jump') : this.keys.delete('jump'); };
+    this.jumpButton.addEventListener('pointerdown', (e) => { this.jumpButton.setPointerCapture(e.pointerId); press(true)(e); });
+    for (const t of ['pointerup', 'pointercancel']) this.jumpButton.addEventListener(t, press(false));
+    this.jumpButton.addEventListener('contextmenu', (e) => e.preventDefault());
+    container.append(this.menuButton, this.mobileToggle, this.jumpButton);
+    this._onOrient = (e) => {
+      if (e.beta === null || e.gamma === null) return;
+      // tilt that tips the screen's right edge down, whatever way the phone is held
+      const a = screen.orientation?.angle ?? window.orientation ?? 0;
+      this.tilt = a === 90 ? e.beta : a === -90 || a === 270 ? -e.beta : a === 180 ? -e.gamma : e.gamma;
+    };
+    this._syncControls();
+  }
+
+  /** Mobile mode is only ever switched by the player (top-right toggle). */
+  async setMobile(on) {
+    this.mobile = on;
+    this.keys.clear();
+    if (on) {
+      // iOS asks for sensor permission; the toggle's click is the required user gesture
+      try { await globalThis.DeviceOrientationEvent?.requestPermission?.(); } catch { /* denied: no tilt */ }
+      window.addEventListener('deviceorientation', this._onOrient);
+    } else {
+      window.removeEventListener('deviceorientation', this._onOrient);
+      this.tilt = null;
+    }
+    this._syncControls();
+    this.canvas.focus();
+  }
+
+  _syncControls() {
+    this.menuButton.style.display = this.menu ? 'none' : '';
+    this.jumpButton.style.display = this.mobile && !this.menu ? '' : 'none';
+  }
+
+  /** Pedal input from the tilt: proportional past a dead zone, −1..1 in 0.1 steps (keeps log rows sparse). */
+  tiltInput() {
+    if (this.tilt === null) return 0;
+    const d = this.tilt - this.tiltZero;
+    const x = Math.min(1, Math.max(0, Math.abs(d) - TILT_DEAD) / (TILT_FULL - TILT_DEAD));
+    return Math.sign(d) * Math.round(x * 10) / 10;
   }
 
   /** The finish line is crossed: record the time, keep it if it is the level's best, back to the menu. */
@@ -82,8 +151,7 @@ export class UnicycleGame {
     if (record) { this.bestTimes[name] = time; saveBestTimes(this.bestTimes); }
     this.result = { name, time, record };
     if (this.p.consoleLog) console.log(`[unicycle] run ${this.run} finished ${name} in ${time.toFixed(2)}s${record ? ' (best)' : ''}`);
-    this.menu = true;
-    this.keys.clear();
+    this.toMenu();
   }
 
 
@@ -126,7 +194,9 @@ export class UnicycleGame {
     clearInterval(this._flushTimer);
     if (this._onHide) { this.telemetry.flushLog(true); window.removeEventListener('pagehide', this._onHide); }
     this._ro.disconnect();
+    window.removeEventListener('deviceorientation', this._onOrient);
     this.canvas.remove();
+    this.menuButton.remove(); this.mobileToggle.remove(); this.jumpButton.remove();
   }
 
   resize() {
@@ -140,7 +210,8 @@ export class UnicycleGame {
   update(dt) {
     if (this.menu) return;
     if (this.s.fallen) { this.reset(); return; } // restart immediately, stay in game
-    const input = (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
+    const input = this.mobile ? this.tiltInput()
+      : (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
     // manual mode: A/D drive the torso at the hip; otherwise the pedals also drive it (hip = null)
     const hip = this.manual ? (this.keys.has('torsoForward') ? 1 : 0) - (this.keys.has('torsoBack') ? 1 : 0) : null;
     const jump = this.keys.has('jump');
@@ -173,10 +244,22 @@ export class UnicycleGame {
   render() {
     render(this.ctx, { w: this.w, h: this.h, dpr: this.dpr }, this.s, this.p, {
       menu: this.menu, levels: this.levels, level: this.level,
-      levelIndex: this.levelIndex, bestTimes: this.bestTimes, manual: this.manual,
+      levelIndex: this.levelIndex, bestTimes: this.bestTimes, manual: this.manual, mobile: this.mobile,
       result: this.result, levelError: this.levelError,
     });
   }
+}
+
+// Mobile mode: device tilt (deg from the run's starting pose) below TILT_DEAD is coasting,
+// TILT_FULL and beyond is a full pedal input.
+const TILT_DEAD = 2;
+const TILT_FULL = 15;
+
+function el(tag, css, text) {
+  const e = document.createElement(tag);
+  e.style.cssText = css;
+  e.textContent = text;
+  return e;
 }
 
 const KEY_MAP = {
