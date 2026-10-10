@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>За рабочим столом — Даниил Прохоров</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: #f4f1e7; color: #283e47; font-family: Georgia, 'Times New Roman', serif; }
+main { max-width: 1440px; margin: auto; padding: 30px 40px 24px; }
+header { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; padding-bottom: 18px; border-bottom: 1px solid #c5cecb; }
+h1 { font-size: 23px; font-weight: normal; margin: 0; }
+.meta { font: 10px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: 1.6px; text-align: right; color: #687b7b; }
+.room-view { margin: 24px 0; border: 1px solid #78979a; background: #50b7c0; overflow: hidden; }
+.room-view img { display: block; width: 100%; height: auto; }
+footer { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; padding-top: 18px; border-top: 1px solid #c5cecb; }
+footer p { margin: 0; font-size: 15px; }
+footer span { font: 10px/1.7 ui-monospace, Consolas, monospace; letter-spacing: 1px; color: #687b7b; }
+@media (max-width: 650px) {
+ main { padding: 22px 12px; }
+ h1 { font-size: 19px; }
+ .meta { font-size: 9px; }
+ .room-view { margin: 18px 0; }
+ footer { flex-direction: column; gap: 10px; }
+ footer p { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+<!-- Visual prototype: authored as separate GLB objects, displayed as a fixed 2D render.
+     Models and placements: assets/room-3d/models/; camera and light: assets/room-3d/view.json.
+     To edit/render: serve the repo (python3 -m http.server 8769), then open
+     http://localhost:8769/assets/room-3d/studio.html. Save PNG as assets/room-3d/room-view.png.
+     The published page intentionally has no JavaScript, WebGL, or 3D navigation. -->
+<main>
+<header>
+ <h1>Даниил Прохоров</h1>
+ <div class="meta">КОМНАТА / 02<br>ЗА РАБОЧИМ СТОЛОМ</div>
+</header>
+<figure class="room-view">
+ <img src="assets/room-3d/room-view.png" width="1920" height="1200" fetchpriority="high"
+      alt="Вид от первого лица, сидя за столом Даниила: перед вами раздельная клавиатура и монитор, слева 3D-принтер и кружка, справа блокнот и красная лампа. За столом бирюзовая стена с полкой, чертежом и окном на городские крыши; у стены стоит уницикл.">
+</figure>
+<footer>
+ <p>Разобрать. Придумать. Собрать по-своему.</p>
+ <span>ДОМА · МЕЖДУ ПРОЕКТАМИ</span>
+</footer>
+</main>
+</body>
+</html>

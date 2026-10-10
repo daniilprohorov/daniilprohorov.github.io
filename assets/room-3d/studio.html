@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Студия комнаты</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 20px; background: #f4f1e7; color: #283e47; font: 14px/1.5 system-ui, sans-serif; }
+    main { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    #viewport { width: 100%; display: flex; align-items: center; justify-content: center; }
+    canvas { display: block; max-width: 100%; max-height: calc(100vh - 130px); width: auto; height: auto; object-fit: contain; }
+    #status { margin: 0; overflow-wrap: anywhere; }
+    button { font: inherit; padding: 8px 16px; color: inherit; background: #eeeada; border: 1px solid #97afab; border-radius: 4px; cursor: pointer; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="viewport"></div>
+    <p id="status" role="status">Загрузка комнаты…</p>
+    <button id="save-png" type="button" hidden>Сохранить PNG</button>
+    <button id="export-glb" type="button">Экспортировать GLB</button>
+    <p>Для экспорта выберите папку assets/room-3d/models.</p>
+  </main>
+  <script src="room-tools.min.js"></script>
+  <script src="models-source.js"></script>
+  <script src="studio.js"></script>
+</body>
+</html>

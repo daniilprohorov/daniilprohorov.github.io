@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Комната Даниила — визуальный этюд</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f1e7;color:#282e32;font-family:Georgia,'Times New Roman',serif}main{max-width:1320px;margin:auto;padding:32px 42px 22px}header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid #b9c3c4;padding-bottom:17px}h1{font-size:22px;font-weight:normal;margin:0}header span,footer{font:11px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.3px;color:#65747a}.scene{margin:22px 0 18px;border:1px solid #66797b;background:#71c9cf;box-shadow:0 7px 20px #263e4612}.scene svg{display:block;width:100%;height:auto}svg{stroke:#303c42;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round;fill:none}svg text{stroke:none;fill:#303c42;font-family:ui-monospace,Consolas,monospace}footer{display:flex;justify-content:space-between;gap:20px;letter-spacing:.6px}footer p{margin:0} @media(max-width:650px){main{padding:22px 12px}header{align-items:start;gap:15px}h1{font-size:18px}header span{text-align:right;font-size:9px}.scene{margin-top:17px}footer{flex-direction:column;gap:7px;font-size:10px}}
+</style>
+</head>
+<body>
+<!-- Standalone visual study. No actions, external assets, or channel data are loaded. -->
+<main>
+<header><h1>Даниил Прохоров</h1><span>КОМНАТА / 01<br>ВИЗУАЛЬНЫЙ ЭТЮД</span></header>
+<div class="scene">
+<svg viewBox="0 0 1200 780" role="img" aria-labelledby="room-title room-description">
+<title id="room-title">Домашняя мастерская Даниила</title>
+<desc id="room-description">Комната в цветной палитре Magic Cap: бирюзовые стены, жёлто-оливковый стол, светлые приборы и небольшие красные и синие акценты. На столе компьютер, раздельная клавиатура и чертёж втулки. Рядом 3D-принтер, старые телефоны, уницикл и окно на городские крыши.</desc>
+<defs>
+ <pattern id="paper" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="2" cy="3" r=".55" fill="#486f77" stroke="none" opacity=".35"/></pattern>
+ <pattern id="shade" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M0 5L5 0" stroke="#6b8490" stroke-width=".65"/></pattern>
+ <pattern id="dark" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" fill="#465862" stroke="none"/><path d="M0 4L4 0" stroke="#26333d" stroke-width=".65"/></pattern>
+ <pattern id="grain" width="95" height="18" patternUnits="userSpaceOnUse"><path d="M0 5Q24 1 48 5T95 5M8 13Q30 17 63 12T100 13" stroke="#9a9b89" stroke-width=".6"/></pattern>
+ <pattern id="keys" width="13" height="12" patternUnits="userSpaceOnUse"><rect x="2" y="2" width="9" height="8" rx="1" fill="#eeece1" stroke-width=".8"/></pattern>
+ <g id="wheel"><circle r="65" stroke-width="8" fill="#e7e9e8"/><circle r="55" stroke-width="1.2"/><path d="M0-55V55M-55 0H55M-39-39L39 39M-39 39L39-39M-21-51L21 51M-51-21L51 21M-51 21L51-21M-21 51L21-51" stroke-width=".8"/><circle r="7" fill="#5387ab"/></g>
+</defs>
+<!-- Architecture: a quiet corner, not a desktop shell. -->
+<path d="M0 0H1200V514L1010 433H0Z" fill="#71c9cf" stroke="none"/>
+<path d="M1010 0H1200V514L1010 433Z" fill="#4cabb8" stroke="none"/>
+<path d="M0 0H1010V433H0Z" fill="url(#paper)" stroke="none"/>
+<path d="M0 433H1010L1200 514V780H0Z" fill="#d9cfad" stroke="none"/>
+<path d="M1010 0V433L1200 514M0 433H1010M0 443H1006L1200 526"/>
+<path d="M0 613L1090 467M0 738L1158 495M268 780L1200 549M662 780L1200 622M1030 780L1200 709" stroke="#ac9c7c"/>
+<path d="M134 596L297 634M446 555L599 592M688 523L833 558M326 669L468 710M749 633L886 678M966 592L1115 639" stroke="#ac9c7c"/>
+<!-- Window, deep reveal and a deliberately ordinary Petersburg roofline. -->
+<path d="M460 51H771V293H460Z" fill="#f0efe7"/>
+<path d="M474 64H757V280H474Z" fill="#b8def1"/>
+<path d="M477 205L505 205V168L521 155L540 168V194H573V177H601V143L621 133L644 143V179H669V158L690 149L714 158V188H754V278H477Z" fill="#adaec0" stroke-width="1"/>
+<path d="M481 237H540V214H576V239H618V202H657V230H699V217H754V280H481Z" fill="#7e96ac"/>
+<path d="M602 143H644M617 134V117H624V135M521 155V145M690 149V135" stroke-width="1"/>
+<path d="M489 224H498M512 223H521M628 216H636M645 216H653M706 236H715M732 236H741" stroke="#e8eade" stroke-width="4"/>
+<path d="M612 64V279M475 170H757" stroke="#f2f0e7" stroke-width="9"/>
+<path d="M612 64V279M475 170H757" stroke-width="1.2"/>
+<path d="M460 51H771V293H460ZM474 64H757V280H474Z"/>
+<path d="M451 293H778L791 307H439Z" fill="#e2e3d6"/>
+<path d="M439 307V314H791V307" fill="#b7bdab"/>
+<path d="M761 45V270" stroke-width="1"/><circle cx="761" cy="273" r="3" fill="#727d66"/>
+<!-- Small plant, not a generic room full of plants. -->
+<path d="M697 277H733L728 300H702Z" fill="#cf775c"/><path d="M715 277V240M715 257Q687 257 694 238Q714 238 715 257M716 267Q742 264 736 248Q718 248 716 267" fill="#5e9967"/>
+<!-- Pegged drawing. -->
+<g transform="rotate(-3 336 153)"><rect x="271" y="91" width="126" height="128" fill="#f1efe5"/><path d="M295 91V103M372 91V103" stroke="#a7ac99" stroke-width="8"/><circle cx="333" cy="151" r="33"/><circle cx="333" cy="151" r="21"/><circle cx="333" cy="151" r="5"/><path d="M300 151H366M333 118V184M290 194H377M290 190V198M377 190V198" stroke-width=".8"/><text x="296" y="210" font-size="9">36″ / HUB STUDY</text></g>
+<!-- Shelf: remembered phones and material, not a claim of a collection. -->
+<path d="M63 192H241L252 203H63Z" fill="#d7cd70"/><path d="M63 203H252V213H63Z" fill="url(#shade)"/><path d="M81 213V237L107 213M225 213V237L202 213"/>
+<rect x="84" y="140" width="25" height="51" rx="5" fill="#476b8c"/><rect x="88" y="146" width="17" height="17" rx="2" fill="#b8d2b7"/><path d="M91 172H102M91 177H102M91 182H102" stroke-width="2"/>
+<rect x="121" y="149" width="37" height="42" rx="4" fill="#f4f2e9"/><rect x="126" y="153" width="27" height="17" fill="#495b68"/><path d="M126 178H153M127 184H152M132 175V187M139 175V187M146 175V187" stroke-width="1"/>
+<circle cx="203" cy="168" r="23" fill="#d9ddcd"/><circle cx="203" cy="168" r="15" fill="url(#dark)"/><circle cx="203" cy="168" r="6" fill="#eeece3"/>
+<text x="75" y="262" font-size="10" letter-spacing="2">ОСТАВИТЬ. ПРИГОДИТСЯ.</text>
+<!-- Unicycle: exposed beside the desk. -->
+<ellipse cx="1036" cy="582" rx="91" ry="14" fill="#aeb5a2" stroke="none"/>
+<g transform="translate(1051 506) rotate(8)"><use href="#wheel"/><path d="M-12 0V-94Q-12-108 0-110Q12-108 12-94V0" stroke="#4c79aa" stroke-width="4"/><path d="M0-110V-153" stroke-width="7"/><path d="M-30-163Q-10-172 3-161Q18-164 29-158L26-148Q0-140-30-152Z" fill="#34434b" stroke-width="2"/><path d="M0 0L-18 19H-36M0 0L18-19H36" stroke-width="4"/><path d="M-44 19H-26M27-19H46" stroke-width="7"/></g>
+<!-- Backpack in the visible room corner. -->
+<path d="M1132 497Q1140 478 1164 488L1182 507L1189 584Q1161 600 1124 581Z" fill="#ce8760"/>
+<path d="M1139 494Q1146 462 1165 489M1140 514L1178 520L1181 569L1136 566ZM1141 532L1178 538M1128 519L1119 560M1180 511L1194 549"/>
+<!-- Desk shadow and large concrete top. -->
+<ellipse cx="585" cy="708" rx="413" ry="39" fill="#b0b7a3" stroke="none"/>
+<path d="M159 581V716L176 721L185 581M891 581V702L908 696L913 572" fill="#777747" stroke-width="2"/>
+<path d="M165 624H901" stroke-width="5"/>
+<path d="M173 585H372V675H173Z" fill="#c1bd64"/><path d="M173 630H372M196 650H351"/>
+<rect x="251" y="608" width="46" height="5" rx="2" fill="#faf7e7"/>
+<path d="M875 585H944V672H875Z" fill="#adad58"/><path d="M893 601H926V651H893Z" fill="url(#shade)"/>
+<path d="M182 364H888L1001 570H97Z" fill="#d9d779" stroke-width="2.3"/>
+<path d="M182 364H888L1001 570H97Z" fill="url(#paper)" stroke="none"/>
+<path d="M97 570H1001V589H97Z" fill="#b3b35d" stroke-width="2"/>
+<path d="M111 578H987" stroke="#f1efae"/>
+<!-- Printer on the left side of the workbench. -->
+<path d="M201 329L318 329L343 454H179Z" fill="#526778"/>
+<path d="M193 277L303 277L323 424H178Z" fill="#f3f2e9" stroke-width="4"/>
+<path d="M205 291H290L303 400H193Z" fill="url(#shade)"/>
+<path d="M196 321H298M213 291L207 393M276 291L289 393" stroke-width="3"/>
+<path d="M239 315H259V333H239Z" fill="#88947a"/><path d="M246 333L250 341L254 333" fill="#4c5146"/>
+<path d="M209 389L224 373H280L298 393H209Z" fill="#9da88f"/>
+<path d="M233 379V355L249 348L271 354V380Z" fill="#e7e8dc"/><path d="M234 361L270 363M234 368L270 370M234 375L270 377" stroke="#adb5a0" stroke-width=".8"/>
+<path d="M178 424H323L334 446H174Z" fill="#e5e6de"/>
+<rect x="197" y="428" width="46" height="12" fill="#e1e6d4"/><text x="204" y="437" font-size="7">PRINT 08</text><circle cx="298" cy="434" r="5"/>
+<path d="M250 315Q261 276 312 276Q337 276 339 309" stroke-width="1"/>
+<!-- Monitor with a quiet modelling viewport. -->
+<path d="M451 243H658V398H451Z" fill="#f4f2e9" stroke-width="3"/>
+<rect x="463" y="255" width="183" height="128" fill="#b9d5eb"/>
+<path d="M463 271H646M482 271V383" stroke="#779bb4" stroke-width="1"/>
+<path d="M492 353L570 307L630 338M505 370L583 324L643 355M490 335L560 375M514 318L592 365M540 305L618 351" stroke="#8dafc6" stroke-width=".8"/>
+<path d="M535 316L575 300L603 316V344L563 360L535 343Z" fill="#bac6ab"/><path d="M535 316L563 333L603 316M563 333V360"/><ellipse cx="567" cy="316" rx="14" ry="7" fill="#e0e5d5"/>
+<text x="470" y="266" font-size="7">hub_v12 / perspective</text><circle cx="555" cy="391" r="2" fill="#4c5146"/>
+<path d="M541 398V420L516 433H596L570 420V398" fill="#d7dce0"/>
+<!-- Desk lamp. -->
+<ellipse cx="769" cy="430" rx="33" ry="10" fill="#bd5c4e"/><path d="M769 423L784 340L743 280" stroke-width="6"/><circle cx="784" cy="340" r="6" fill="#e5e6df"/>
+<path d="M719 263L752 248L775 278L723 299Z" fill="#d97460"/><path d="M723 299Q749 307 775 278" fill="#fff5d9"/><path d="M737 276L758 266" stroke="#f2b29a" stroke-width="2"/>
+<!-- Split keyboard, trackball and cable. -->
+<path d="M422 450L493 439L516 480L430 494Z" fill="#476982"/><path d="M428 454L489 445L505 477L436 486Z" fill="url(#keys)"/>
+<path d="M540 440L612 452L599 495L521 482Z" fill="#476982"/><path d="M547 447L605 457L594 487L532 477Z" fill="url(#keys)"/>
+<path d="M485 444Q512 423 548 444M585 449Q616 421 595 407" stroke-width="1"/>
+<path d="M644 472Q649 450 668 453Q688 456 684 480L680 491L643 485Z" fill="#f2f1e7"/><circle cx="666" cy="465" r="9" fill="#c97055"/>
+<!-- Open notebook and a drawing of a hub. -->
+<path d="M702 470L787 452L853 493L762 519Z" fill="#f0eee3"/><path d="M787 452L808 481L762 519M706 477L785 460M711 484L790 467" stroke="#a7ad99" stroke-width=".8"/>
+<g transform="translate(768 488) rotate(-15)"><path d="M-21-7H17V8H-21Z" fill="#d8decb"/><ellipse cx="-21" cy="0" rx="5" ry="13" fill="#e8eadc"/><ellipse cx="17" cy="0" rx="5" ry="13" fill="#e8eadc"/><path d="M-30 0H29"/></g>
+<path d="M821 453L864 481" stroke="#778469" stroke-width="5"/><path d="M864 481L870 485L866 477" fill="#4c5146"/>
+<!-- Cup, small prototype parts and hand tools. -->
+<ellipse cx="382" cy="454" rx="24" ry="8" fill="#b6bfaa" stroke="none"/>
+<path d="M363 420H395V444Q379 456 363 444Z" fill="#e7e8db"/><ellipse cx="379" cy="420" rx="16" ry="5" fill="#8a947c"/><path d="M395 425Q414 422 408 436Q405 441 395 438"/>
+<path d="M303 498L328 487L352 498L328 511Z" fill="#a2af94"/><path d="M303 498V510L328 523L352 510V498M328 511V523"/><ellipse cx="328" cy="500" rx="9" ry="5" fill="#dce2d0"/>
+<path d="M372 517L401 507L420 518L389 530Z" fill="#d4dbc7"/><circle cx="401" cy="516" r="4"/><path d="M371 517V525L389 537L420 525V518"/>
+<path d="M240 503L264 491L273 496L249 509Z" fill="#a3ae95"/><path d="M262 492L283 480M281 478L291 481" stroke-width="4"/>
+<path d="M843 535L872 512M866 510L878 515M838 533L847 539" stroke-width="5"/>
+<!-- Quiet evidence of ongoing work. -->
+<path d="M558 523L610 513L626 538L573 549Z" fill="#e7dfb9" stroke="#9f9f81"/><text x="572" y="530" font-size="8" transform="rotate(-12 572 530)">ещё одну</text><text x="579" y="540" font-size="8" transform="rotate(-12 579 540)">итерацию</text>
+<!-- Chair tucked back from the workbench. -->
+<path d="M456 721L444 765M651 714L671 759" stroke-width="7"/>
+<path d="M433 684Q539 662 660 680L680 716Q553 744 430 720Z" fill="#477d9b"/>
+<path d="M455 618Q549 600 641 618L653 690Q546 713 449 691Z" fill="#6699b0" stroke-width="2"/><path d="M466 631Q549 616 629 631M462 675Q550 691 639 674" stroke="#35617a" stroke-width="1"/>
+<text x="33" y="748" font-size="10" letter-spacing="2" fill="#7a8370">ДОМА / МЕЖДУ ПРОЕКТАМИ</text>
+</svg>
+</div>
+<footer><p>Место, где можно разобраться, собрать и попробовать ещё раз.</p><p>РАБОЧИЙ СТОЛ · БЕЗ СПЕШКИ</p></footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,584 @@
+{
+  "objects": [
+    {
+      "id": "printer-prototype",
+      "file": "printer-prototype.glb",
+      "position": [
+        -1.81,
+        1.847,
+        -0.54
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "keyboard-left",
+      "file": "keyboard-left.glb",
+      "position": [
+        -0.4,
+        1.52,
+        0.18
+      ],
+      "quaternion": [
+        0,
+        -0.07492970727274234,
+        0,
+        0.9971888181122076
+      ],
+      "scale": [
+        0.9999999999999999,
+        1,
+        0.9999999999999999
+      ]
+    },
+    {
+      "id": "keyboard-right",
+      "file": "keyboard-right.glb",
+      "position": [
+        0.19999999999999998,
+        1.52,
+        0.18
+      ],
+      "quaternion": [
+        0,
+        0.07492970727274234,
+        0,
+        0.9971888181122076
+      ],
+      "scale": [
+        0.9999999999999999,
+        1,
+        0.9999999999999999
+      ]
+    },
+    {
+      "id": "3d-printer",
+      "file": "3d-printer.glb",
+      "position": [
+        -1.85,
+        1.52,
+        -0.6
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "monitor",
+      "file": "monitor.glb",
+      "position": [
+        -0.13,
+        1.52,
+        -0.72
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "keyboard-cables",
+      "file": "keyboard-cables.glb",
+      "position": [
+        -0.1,
+        1.52,
+        0.18
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "trackball",
+      "file": "trackball.glb",
+      "position": [
+        0.64,
+        1.52,
+        0.18
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "open-notebook",
+      "file": "open-notebook.glb",
+      "position": [
+        1.28,
+        1.545,
+        0.12
+      ],
+      "quaternion": [
+        0,
+        -0.09983341664682817,
+        0,
+        0.9950041652780257
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "pencil",
+      "file": "pencil.glb",
+      "position": [
+        1.7,
+        1.538,
+        -0.10999999999999999
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "round-prototype",
+      "file": "round-prototype.glb",
+      "position": [
+        -1.0699999999999998,
+        1.525,
+        0.27999999999999997
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "square-prototype",
+      "file": "square-prototype.glb",
+      "position": [
+        -0.82,
+        1.525,
+        0.38000000000000006
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "sticky-note",
+      "file": "sticky-note.glb",
+      "position": [
+        0.29000000000000004,
+        1.523,
+        0.44
+      ],
+      "quaternion": [
+        -0.705834370772256,
+        -0.04240095560872934,
+        -0.042400955608729356,
+        0.7058343707722561
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "coffee-mug",
+      "file": "coffee-mug.glb",
+      "position": [
+        -1.04,
+        1.52,
+        -0.45999999999999996
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "task-lamp",
+      "file": "task-lamp.glb",
+      "position": [
+        1.35,
+        1.52,
+        -0.7
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "old-phone-keypad",
+      "file": "old-phone-keypad.glb",
+      "position": [
+        -2.9499999999999997,
+        2.93,
+        -2.27
+      ],
+      "quaternion": [
+        -0.039989334186634154,
+        0,
+        0,
+        0.999200106660978
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "old-phone-qwerty",
+      "file": "old-phone-qwerty.glb",
+      "position": [
+        -2.67,
+        2.93,
+        -2.27
+      ],
+      "quaternion": [
+        -0.039989334186634154,
+        0,
+        0,
+        0.999200106660978
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "book-1",
+      "file": "book-1.glb",
+      "position": [
+        -2.3099999999999996,
+        2.89,
+        -2.27
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "book-2",
+      "file": "book-2.glb",
+      "position": [
+        -2.215,
+        2.89,
+        -2.27
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "book-3",
+      "file": "book-3.glb",
+      "position": [
+        -2.1199999999999997,
+        2.89,
+        -2.27
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "shelf-spool",
+      "file": "shelf-spool.glb",
+      "position": [
+        -1.9799999999999998,
+        2.9,
+        -2.27
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "room-shell",
+      "file": "room-shell.glb",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "window-and-rooftops",
+      "file": "window-and-rooftops.glb",
+      "position": [
+        0.575,
+        2.715,
+        -2.5
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "workbench",
+      "file": "workbench.glb",
+      "position": [
+        -0.25,
+        0,
+        -0.3
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "parts-shelf",
+      "file": "parts-shelf.glb",
+      "position": [
+        -2.51,
+        2.71,
+        -2.27
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "engineering-drawing",
+      "file": "engineering-drawing.glb",
+      "position": [
+        -1.16,
+        2.8,
+        -2.406
+      ],
+      "quaternion": [
+        0,
+        0,
+        0.02249810161055362,
+        0.9997468856785307
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "windowsill-plant",
+      "file": "windowsill-plant.glb",
+      "position": [
+        1.37,
+        1.905,
+        -2.24
+      ],
+      "quaternion": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "unicycle",
+      "file": "unicycle.glb",
+      "position": [
+        2.81,
+        0.73,
+        -1.23
+      ],
+      "quaternion": [
+        0.006974248947361969,
+        -0.13936872208725587,
+        -0.04949017288924477,
+        0.9889784840646323
+      ],
+      "scale": [
+        0.9999999999999999,
+        1,
+        0.9999999999999999
+      ]
+    },
+    {
+      "id": "backpack",
+      "file": "backpack.glb",
+      "position": [
+        3.06,
+        0,
+        0.09
+      ],
+      "quaternion": [
+        0,
+        -0.09983341664682817,
+        0,
+        0.9950041652780257
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": "desk-chair",
+      "file": "desk-chair.glb",
+      "position": [
+        -0.1,
+        0,
+        1.61
+      ],
+      "quaternion": [
+        0,
+        -0.07492970727274234,
+        0,
+        0.9971888181122076
+      ],
+      "scale": [
+        0.9999999999999999,
+        1,
+        0.9999999999999999
+      ]
+    }
+  ]
+}
