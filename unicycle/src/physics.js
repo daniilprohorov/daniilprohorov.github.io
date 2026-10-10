@@ -1,26 +1,10 @@
 import { featureY, featureBeta, supportFeature, inDomain, cutsTrack, nearestOnTrack, trackPoint, crosses, distToSegment } from './terrain.js';
-import { SEAT, SHOULDER, HEAD, HEAD_R, bodyPoint, armPoints } from './rider-geometry.js';
+import { SEAT, HIP, SHOULDER, HEAD, HEAD_R, bodyPoint, armPoints } from './rider-geometry.js';
 
-// Physics: wheeled inverted pendulum (same model as a Segway), planar.
-//   x, y  — wheel center (axle) position, m (+x right, +y up); the wheel rolls on the terrain
-//   v     — wheel speed along the terrain (the path its axle follows), m/s; in flight the axle's
-//           horizontal speed, with vy its vertical one
-//   theta — body tilt from vertical around the axle, rad (+ leaning right)
-// On a slope the wheel's acceleration acts along the slope and gravity pulls along it; edges are
-// hit by the wheel circle (rolled over when low, a dead stop when higher than the axle). Where the
-// ground would have to pull the wheel down (over a crest, off a ledge) it flies: the centre of mass
-// is ballistic and the wheel spins on its own (wheelOmega), so the pedals only trade spin between
-// wheel and body. Touching down, friction brings the rim to the ground's speed.
-// The body rides on the legs, a spring-damper along its axis (leg = its centre of mass's distance
-// from the axle) that absorbs landings and bottoms out at a hard stop, legMin. Holding jump bends
-// them (a crouch that grows with the charge); releasing it pushes off, which can hop the wheel up.
-// The player controls pedal (wheel) acceleration: holding a key accelerates at `pedalAccel`
-// (the opposite key brakes at that rate); releasing coasts to zero at the slower `releaseDecel`.
-// Acceleration itself ramps linearly toward the target over `accelRiseTime`, so presses don't jolt.
-// The wheel's acceleration drives the body tilt: accelerating forward pitches
-// the body back, so to catch a forward fall you pedal forward under the body.
-// `tau` is the pedal torque the rider must apply for that motion against rolling resistance
-// and air drag; its reaction pitches the body back, so holding speed needs a forward lean.
+// A rolling wheel, telescoping lower link and hinged torso, planar. Both absolute angles are
+// measured clockwise from vertical. Pedals and the hip spring exchange equal/opposite torques;
+// neither joint targets world upright. Contact solves wheel, both angles and leg acceleration
+// together. Flight eliminates translation, moves the COM ballistically, and conserves total spin.
 
 const G = 9.81;
 
@@ -37,15 +21,20 @@ export const DEFAULT_PARAMS = {
   jumpReach: 0.285,    // m, how far above bodyCom the legs' setpoint goes during the push-off at full charge (≈ 0.45 m hop)
   jumpPushTime: 0.15,  // s, how long the push-off lasts
   bodyInertia: 8,      // kg·m², about own COM
-  pedalAccel: 5,       // m/s², speed change rate while a key is held (incl. braking with the opposite key)
-  pedalAccelMax: 8,    // m/s², held-key accel when pushing toward a lean of leanForMaxBoost or more
+  torsoMassFraction: 0.55, // upper-link share of bodyMass; the rest is the lower link
+  torsoCom: 0.25,      // m, upper-link COM above the hip
+  torsoInertia: 2.4,   // kg·m², upper-link inertia about its own COM
+  hipStiffness: 140,   // N·m/rad, spring opposing torsoTheta - theta
+  hipDamping: 24,      // N·m·s/rad, internal damping opposing torsoOmega - omega
+  maxHipTorque: 90,    // N·m, spring/damper torque limit (equal and opposite on both links)
+  pedalAccel: 5,       // m/s² target axle acceleration from held pedals
+  pedalAccelMax: 8,    // m/s² target when pushing toward a lean of leanForMaxBoost or more
   leanTorqueBoost: 40, // N·m, extra leg torque (not cadence-faded) toward a lean of leanForMaxBoost: body weight on the pedal
   leanForMaxBoost: 0.35, // rad (≈ 20°), lean at which the boosts above reach full strength
   releaseDecel: 0.5,   // m/s², slower coast-down to zero after release
   accelRiseTime: 0.1,  // s, time for acceleration to go 0 → pedalAccel (and back)
   maxCadence: 200,     // rpm, cadence at which the legs can no longer push the wheel forward
   maxPedalTorque: 100, // N·m, leg torque at the cranks from standstill (≈ 800 N on a 0.125 m crank)
-  tiltDamping: 10,     // N·m·s/rad, rider stiffness (makes it playable)
   rollingResistance: 0.015, // rolling resistance coefficient (tyre on asphalt)
   dragArea: 0.5,       // m², Cd·A of an upright rider
   airDensity: 1.2,     // kg/m³
@@ -63,7 +52,8 @@ export const DEFAULT_PARAMS = {
 export function createState(x = 0, p = DEFAULT_PARAMS) {
   const y = featureY(supportFeature(p.track, x, p.wheelRadius), x);
   return {
-    x, y, v: 0, vy: 0, theta: 0.03, omega: 0, wheelOmega: 0, wheelAngle: 0, acc: 0, accCmd: 0, alpha: 0, tau: 0,
+    x, y, v: 0, vy: 0, theta: 0.03, omega: 0, torsoTheta: 0.03, torsoOmega: 0,
+    wheelOmega: 0, wheelAngle: 0, acc: 0, accCmd: 0, alpha: 0, torsoAlpha: 0, tau: 0, hipTau: 0,
     leg: p.bodyCom, legV: 0, charge: 0, push: 0, t: 0, airborne: false, fallen: false, finished: false,
   };
 }
@@ -81,157 +71,227 @@ function targetAccel(v, theta, input, p) {
   return -Math.sign(v) * Math.min(p.releaseDecel, Math.abs(v) / p.accelRiseTime);
 }
 
-/** Acceleration moves toward the target linearly: full scale takes `accelRiseTime`. `v` is the
- *  rim's speed. On a slope the target also carries gravity's pull along it, `slopeAcc` (what a
- *  free-rolling wheel would get). It ramps from the last command `accCmd`, not from what the legs'
- *  torque limit let through: a load spike (a landing, an edge) does not become the rider's command. */
-function commandedAccel(s, v, input, dt, p, slopeAcc) {
-  const target = targetAccel(v, s.theta, input, p) + slopeAcc;
-  const maxDelta = (Math.max(p.pedalAccel, Math.abs(target)) / p.accelRiseTime) * dt;
+/** Ramp the acceleration command, including the free-rolling contribution of a slope. */
+function commandedAccel(s, speed, input, dt, p, slopeAcc = 0) {
+  const target = targetAccel(speed, s.theta, input, p) + slopeAcc;
+  const maxDelta = Math.max(p.pedalAccel, Math.abs(target)) * dt / p.accelRiseTime;
   return s.accCmd + Math.max(-maxDelta, Math.min(maxDelta, target - s.accCmd));
 }
 
-/** The rim's acceleration from the pedals this step, the rim moving at `speed`, and the command it
- *  came from: { acc, cmd }. `dynamics(acc)` gives the pedal torque `tau` an acceleration takes
- *  (linear in acc); `slopeAcc` is passed on to commandedAccel. */
-function pedalAccel(s, speed, input, dt, p, slopeAcc, dynamics) {
-  // legs: full torque at rest, falling linearly to zero at maxCadence when pushing along the motion;
-  // resisting the motion (braking) always gets full torque. Pushing toward the lean adds body weight
-  // on the pedal: up to leanTorqueBoost, not faded by cadence.
-  const maxSpeed = (p.maxCadence / 60) * 2 * Math.PI * p.wheelRadius;
+function pedalTorque(s, speed, input, dt, p, torqueForAccel, slopeAcc = 0) {
+  const maxSpeed = p.maxCadence * 2 * Math.PI * p.wheelRadius / 60;
   const fade = Math.max(0, 1 - Math.abs(speed) / maxSpeed);
   const hi = p.maxPedalTorque * (speed >= 0 ? fade : 1) + p.leanTorqueBoost * leanBoost(s.theta, 1, p);
   const lo = -p.maxPedalTorque * (speed <= 0 ? fade : 1) - p.leanTorqueBoost * leanBoost(s.theta, -1, p);
-  // tau is linear in acc: map the command to a torque within what the legs can deliver, then solve for acc
-  const tau0 = dynamics(0).tau, dTau = dynamics(1).tau - tau0;
   const cmd = commandedAccel(s, speed, input, dt, p, slopeAcc);
-  const tau = tau0 + dTau * cmd;
-  return { acc: tau > hi ? (hi - tau0) / dTau : tau < lo ? (lo - tau0) / dTau : cmd, cmd };
+  return { tau: Math.max(lo, Math.min(hi, torqueForAccel(cmd))), cmd };
 }
 
-/** Advance physics by dt seconds with the pedals' input in {-1, 0, 1} and `jump` held (true) or not.
- *  Mutates `s`.
- *  Contact mode: the wheel rolls on the track; `v` is its speed along the path its axle follows,
- *  whose tangent makes angle `beta` with +x. Where the ground would have to pull the wheel to keep
- *  it on (normal reaction N < 0: over a crest, off a ledge), the wheel takes off.
- *  Flight mode (`airborne`): `(v, vy)` is the axle's velocity and the wheel spins on its own at
- *  `wheelOmega`, until the wheel touches the track again (touchDown).
- *  In both modes the body slides along its axis on the legs: `leg` is its centre of mass's distance
- *  from the axle, `legV` its rate. Holding jump bends them (`charge` grows 0 → 1 over
- *  jumpChargeTime); releasing it pushes off (for `push` s more). */
+/** Neutral links have combined COM at leg and own-COM rigid inertia bodyInertia, whenever the
+ *  requested torso inertia and COM separation leave a positive lower-link inertia. */
+function links(s, p) {
+  const mt = p.bodyMass * p.torsoMassFraction, ml = p.bodyMass - mt;
+  const offset = HIP - p.bodyCom, c = p.torsoCom, h = s.leg + offset;
+  const a = s.leg - mt * (offset + c) / ml;
+  const Il = Math.max(0.05, p.bodyInertia - p.torsoInertia - p.bodyMass * p.torsoMassFraction * (offset + c) ** 2 / (1 - p.torsoMassFraction));
+  const A = ml * a + mt * h, B = mt * c, C = mt * h * c;
+  const sn = Math.sin(s.theta), cs = Math.cos(s.theta), st = Math.sin(s.torsoTheta), ct = Math.cos(s.torsoTheta);
+  const sd = Math.sin(s.torsoTheta - s.theta), cd = Math.cos(s.torsoTheta - s.theta);
+  return { M: p.wheelMass + p.bodyMass, A, B, C, D: Il + ml * a * a + mt * h * h,
+    E: p.torsoInertia + mt * c * c, F: -B * sd, sn, cs, st, ct, sd, cd };
+}
+
+// Contact coordinates: path distance, lower angle, torso angle, leg length.
+function contactMetric(m, beta, p) {
+  const c = Math.cos(beta), b = Math.sin(beta);
+  const u = m.A * (m.cs * c - m.sn * b), w = m.B * (m.ct * c - m.st * b);
+  const r = p.bodyMass * (m.sn * c + m.cs * b), C = m.C * m.cd;
+  return [[m.M + p.wheelMass, u, w, r], [u, m.D, C, 0], [w, C, m.E, m.F], [r, 0, m.F, p.bodyMass]];
+}
+
+// Translation eliminated at fixed COM. Wheel spin remains an independent coordinate.
+function flightMetric(m, p) {
+  const C = (m.C - m.A * m.B / m.M) * m.cd;
+  return [[m.D - m.A * m.A / m.M, C, 0],
+    [C, m.E - m.B * m.B / m.M, m.F * p.wheelMass / m.M],
+    [0, m.F * p.wheelMass / m.M, p.bodyMass * p.wheelMass / m.M]];
+}
+
+/** Small positive-definite mass systems, including constrained principal submatrices. */
+function solve(matrix, rhs, n = rhs.length) {
+  const a = matrix.slice(0, n).map((row) => row.slice(0, n)), x = rhs.slice(0, n);
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const f = a[j][i] / a[i][i];
+      for (let k = i + 1; k < n; k++) a[j][k] -= f * a[i][k];
+      x[j] -= f * x[i];
+    }
+  }
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = i + 1; j < n; j++) x[i] -= a[i][j] * x[j];
+    x[i] /= a[i][i];
+  }
+  return x;
+}
+
+/** Backward spring/damper forces are part of the SAME mass solve, not a torso response after
+ *  integrating the pelvis. A saturated hip torque is re-solved as a bounded internal force. */
+function jointAccelerations(metric, force, s, dt, p, lowerIndex, locked = false) {
+  const upperIndex = lowerIndex + 1, legIndex = upperIndex + 1;
+  const hipDrag = p.hipDamping + p.hipStiffness * dt;
+  const hip0 = -p.hipStiffness * (s.torsoTheta - s.theta) - hipDrag * (s.torsoOmega - s.omega);
+  const legImplicit = (p.legDamping + p.legStiffness * dt) * dt;
+  const compute = (fixedHip) => {
+    const a = metric.map((row) => row.slice()), q = force.slice();
+    a[legIndex][legIndex] += legImplicit;
+    const hip = fixedHip ?? hip0;
+    q[lowerIndex] -= hip; q[upperIndex] += hip;
+    if (fixedHip === null) {
+      const h = hipDrag * dt;
+      a[lowerIndex][lowerIndex] += h; a[upperIndex][upperIndex] += h;
+      a[lowerIndex][upperIndex] -= h; a[upperIndex][lowerIndex] -= h;
+    }
+    const acc = solve(a, q, locked ? legIndex : q.length);
+    if (locked) acc.push(0);
+    return acc;
+  };
+  let acc = compute(null);
+  let hipTau = hip0 - hipDrag * dt * (acc[upperIndex] - acc[lowerIndex]);
+  if (Math.abs(hipTau) > p.maxHipTorque) {
+    hipTau = Math.sign(hipTau) * p.maxHipTorque;
+    acc = compute(hipTau);
+  }
+  if (!locked && s.leg <= p.legMin && s.legV <= 0 && acc[legIndex] < 0) {
+    return jointAccelerations(metric, force, s, dt, p, lowerIndex, true);
+  }
+  return { acc, hipTau };
+}
+
+/** Inverse contact dynamics at a commanded axle acceleration. Eliminating pedal torque leaves
+ *  one simultaneous solve for both angular accelerations and the legs, including joint limits. */
+function contactTorque(metric, force, s, acceleration, dt, p) {
+  const R = p.wheelRadius;
+  const shape = metric.slice(1).map((row, i) => row.slice(1).map((value, j) =>
+    value + (i === 0 ? R * metric[0][j + 1] : 0)));
+  const rhs = force.slice(1).map((value, i) => value - metric[i + 1][0] * acceleration
+    - (i === 0 ? R * (metric[0][0] * acceleration - force[0]) : 0));
+  const { acc } = jointAccelerations(shape, rhs, s, dt, p, 0);
+  return R * (metric[0][0] * acceleration - force[0]
+    + metric[0][1] * acc[0] + metric[0][2] * acc[1] + metric[0][3] * acc[2]);
+}
+
+function comOffset(s, m, p) {
+  return {
+    x: (m.A * m.sn + m.B * m.st) / m.M,
+    y: (m.A * m.cs + m.B * m.ct) / m.M,
+    vx: (p.bodyMass * s.legV * m.sn + m.A * s.omega * m.cs + m.B * s.torsoOmega * m.ct) / m.M,
+    vy: (p.bodyMass * s.legV * m.cs - m.A * s.omega * m.sn - m.B * s.torsoOmega * m.st) / m.M,
+  };
+}
+
+function shapeMomentum(s, metric) {
+  return (metric[0][0] + metric[1][0]) * s.omega
+    + (metric[0][1] + metric[1][1]) * s.torsoOmega
+    + (metric[0][2] + metric[1][2]) * s.legV;
+}
+
+function fly(s, vx, vy, spin, input, dt, lSet, p) {
+  const m = links(s, p), metric = flightMetric(m, p), old = comOffset(s, m, p);
+  const Iw = p.wheelMass * p.wheelRadius ** 2;
+  const { tau, cmd } = pedalTorque(s, p.wheelRadius * spin, input, dt, p, (acc) => Iw * acc / p.wheelRadius);
+  const rho = p.wheelMass / m.M, U = m.C - m.A * m.B / m.M;
+  const force = [
+    -tau - 2 * rho * m.A * s.legV * s.omega + U * s.torsoOmega ** 2 * m.sd,
+    -2 * rho * m.B * s.legV * s.omega * m.cd - U * s.omega ** 2 * m.sd,
+    p.bodyMass * G + p.legStiffness * (lSet - s.leg)
+      - (p.legDamping + p.legStiffness * dt) * s.legV
+      + rho * (m.A * s.omega ** 2 + m.B * s.torsoOmega ** 2 * m.cd),
+  ];
+  const { acc, hipTau } = jointAccelerations(metric, force, s, dt, p, 0);
+  const next = { ...s, airborne: true, omega: s.omega + acc[0] * dt, torsoOmega: s.torsoOmega + acc[1] * dt,
+    legV: s.legV + acc[2] * dt, wheelOmega: spin + tau * dt / Iw, tau, hipTau, acc: tau * p.wheelRadius / Iw, accCmd: cmd };
+  next.theta += (s.omega + next.omega) * dt / 2;
+  next.torsoTheta += (s.torsoOmega + next.torsoOmega) * dt / 2;
+  next.leg = Math.max(p.legMin, s.leg + next.legV * dt);
+  const mn = links(next, p), metricNew = flightMetric(mn, p);
+  // Correct only roundoff/integration drift in the conserved common-rotation momentum. This
+  // changes neither relative angular velocity nor either angle; it is not an upright controller.
+  const targetL = shapeMomentum(s, metric) - tau * dt;
+  const correction = (targetL - shapeMomentum(next, metricNew))
+    / (metricNew[0][0] + 2 * metricNew[0][1] + metricNew[1][1]);
+  next.omega += correction; next.torsoOmega += correction;
+  if (next.leg <= p.legMin && next.legV < 0) bottomOut(next, p);
+  const offset = comOffset(next, mn, p), vcx = vx + old.vx, vcy = vy + old.vy;
+  next.x = s.x + old.x + vcx * dt - offset.x;
+  next.y = s.y + old.y + vcy * dt - G * dt * dt / 2 - offset.y;
+  next.v = vcx - offset.vx; next.vy = vcy - G * dt - offset.vy;
+  next.alpha = (next.omega - s.omega) / dt; next.torsoAlpha = (next.torsoOmega - s.torsoOmega) / dt;
+  return next;
+}
+
+/** Advance jointly coupled contact/flight physics. Only the input and jump setpoints are active
+ *  controls; joint springs/dampers act internally and the ground can push but never pull. */
 export function step(s, input, jump, dt, p = DEFAULT_PARAMS) {
-  const R = p.wheelRadius, mw = p.wheelMass, mb = p.bodyMass, l = s.leg;
-  const Iw = mw * R * R; // mass sits in the rim/tyre: thin hoop
-  const sin = Math.sin(s.theta), cos = Math.cos(s.theta);
-  // legs: a spring-damper between wheel and body along the body axis. It pushes the body out with
-  // F = mb·G + legStiffness·(lSet − leg) − legDamping·legV, so at the setpoint lSet (bodyCom, the
-  // riding length) it carries the body's weight; below legMin the legs are at their stop (bottomOut).
-  // `legAccel(m, rest)` is leg'' for the legs moving mass m under F plus other accelerations `rest`
-  // along the axis. Spring and damper act with the step's end values (implicit Euler: `legDrag` is
-  // F's loss per unit of the end legV), so stiff legs on the light wheel stay stable.
-  // Jump: while it is held the rider crouches, the setpoint dropping by crouchDepth·charge·(2 − charge)
-  // (easing out, so the body has settled by full charge and holding on adds nothing); on release the
-  // legs push off for jumpPushTime, the setpoint raised by jumpReach·√charge, so the spring's energy,
-  // and so the hop's height, grow roughly in proportion to the charge. Past the setpoint the spring
-  // pulls, so the body flying up lifts the wheel.
+  const R = p.wheelRadius;
   let lSet = p.bodyCom;
   if (s.push <= 0 && jump) {
     s.charge = Math.min(1, s.charge + dt / p.jumpChargeTime);
     lSet -= p.crouchDepth * s.charge * (2 - s.charge);
   } else if (s.charge > 0) {
-    if (s.push <= 0) s.push = p.jumpPushTime; // released: push off
+    if (s.push <= 0) s.push = p.jumpPushTime;
     lSet += p.jumpReach * Math.sqrt(s.charge);
     s.push -= dt;
     if (s.push <= 0) { s.push = 0; s.charge = 0; }
   }
-  const legDrag = p.legStiffness * dt + p.legDamping;
-  const legAccel = (m, rest) => ((mb * G + p.legStiffness * (lSet - l) - legDrag * s.legV) / m + rest) / (1 + (legDrag * dt) / m);
-  // flight: wheel and body turn about their common centre of mass, k up the body axis from the axle;
-  // J = Ib + mu·leg² (mu the reduced mass of wheel and body) is the body's moment of inertia about it.
-  // The centre of mass flies ballistically. The pedals spin the wheel (Iw·wheelOmega' = tau) and turn
-  // the body the other way ((J·omega)' = −tau); the legs only push wheel and body apart
-  // (mu·(leg'' − leg·omega²) = F). Gravity has no moment about the centre of mass and nothing else
-  // acts from outside (no tilt damping, no air drag), so J·omega + Iw·wheelOmega is conserved.
-  // `fly` steps it from the axle velocity (vx, vy) and wheel spin, exact for constant accelerations,
-  // and returns the new state fields.
-  const M = mw + mb, mu = (mw * mb) / M;
-  const k = (mb * l) / M, J = p.bodyInertia + mu * l * l;
-  const flightDynamics = (acc) => ({ tau: (Iw * acc) / R });
-  const fly = (vx, vy, spin) => {
-    const { acc, cmd } = pedalAccel(s, R * spin, input, dt, p, 0, flightDynamics);
-    const { tau } = flightDynamics(acc);
-    const legV = s.legV + legAccel(mu, l * s.omega * s.omega) * dt, leg = l + legV * dt;
-    const kn = (mb * leg) / M;
-    const omega = (J * s.omega - tau * dt) / (p.bodyInertia + mu * leg * leg);
-    const theta = s.theta + ((s.omega + omega) / 2) * dt;
-    // the centre of mass's velocity: the axle's plus that of k up the turning, sliding body axis
-    const vcx = vx + (mb / M) * s.legV * sin + k * s.omega * cos, vcy = vy + (mb / M) * s.legV * cos - k * s.omega * sin;
-    const cx = s.x + k * sin + vcx * dt, cy = s.y + k * cos + (vcy - (G * dt) / 2) * dt;
-    const sn = Math.sin(theta), cs = Math.cos(theta);
-    return {
-      x: cx - kn * sn, y: cy - kn * cs,
-      v: vcx - (mb / M) * legV * sn - kn * omega * cs, vy: vcy - G * dt - (mb / M) * legV * cs + kn * omega * sn,
-      theta, omega, wheelOmega: spin + (acc / R) * dt, leg, legV, acc, accCmd: cmd, alpha: (omega - s.omega) / dt, tau,
-    };
-  };
   if (!s.airborne) {
-    const Mt = mw + mb + Iw / (R * R);
-    // the part of the terrain under the wheel: its tangent and curvature (arcs over a vertex bend the
-    // path down, so the axle accelerates toward the vertex, kappa = −1/R)
-    const f = supportFeature(p.track, s.x, R);
-    const beta = featureBeta(f, s.x), kappa = f.line ? 0 : -1 / R;
-    const sb = Math.sin(beta), cb = Math.cos(beta);
-    // the body's angle to the path normal: what the base acceleration along the path acts through
-    const sinTB = Math.sin(s.theta + beta), cosTB = Math.cos(s.theta + beta);
-    // resistances, signed along the path: rolling (smoothed through v = 0) and air drag on the body;
-    // gravity's pull on wheel and body along the slope
-    const roll = -p.rollingResistance * (mw + mb) * G * cb * Math.tanh(s.v / 0.1);
+    const m = links(s, p), f = supportFeature(p.track, s.x, R);
+    const beta = featureBeta(f, s.x), sb = Math.sin(beta), cb = Math.cos(beta), curvature = f.line ? 0 : -1 / R;
+    const st = Math.sin(s.theta + beta), ct = Math.cos(s.theta + beta);
+    const su = Math.sin(s.torsoTheta + beta), cu = Math.cos(s.torsoTheta + beta);
+    const centripetal = curvature * s.v * s.v;
+    const roll = -p.rollingResistance * m.M * G * cb * Math.tanh(s.v / 0.1);
     const air = -0.5 * p.airDensity * p.dragArea * s.v * Math.abs(s.v);
-    const slopeG = (mw + mb) * G * sb;
-    // the body about the axle feels gravity, the axle's acceleration (along the path, plus centripetal
-    // kappa·v² on arcs), Coriolis from sliding along its turning axis, pedal reaction −tau and drag
-    // moment; along its axis, the legs: mb·(leg'' − leg·omega² + the axle's acceleration along it) =
-    // F − mb·G·cos(theta). The wheel along the path: tau/R = Mt·acc + mb·(the body's acceleration
-    // along it) + slopeG − roll − air.
-    const dynamics = (acc) => {
-      const ldd = legAccel(mb, l * s.omega * s.omega - G * cos - acc * sinTB - kappa * s.v * s.v * cosTB);
-      const cor = 2 * s.legV * s.omega, radial = ldd - l * s.omega * s.omega;
-      const alpha = (mb * l * (G * sin - cosTB * acc + kappa * s.v * s.v * sinTB - cor)
-        - R * (Mt * acc + mb * (cor * cosTB + radial * sinTB) + slopeG - roll - air)
-        + air * p.dragHeight * cosTB - p.tiltDamping * s.omega)
-        / (p.bodyInertia + mb * l * l + R * mb * l * cosTB);
-      return { alpha, ldd, tau: R * (Mt * acc + mb * ((cor + l * alpha) * cosTB + radial * sinTB) + slopeG - roll - air) };
-    };
-    const { acc, cmd } = pedalAccel(s, s.v, input, dt, p, -slopeG / Mt, dynamics);
-    const { alpha, ldd, tau } = dynamics(acc);
-    // the ground's normal reaction on the wheel: what gives wheel and body their accelerations across
-    // the path (centripetal on arcs, the body swinging about the axle and sliding on the legs) against
-    // gravity. It can push, not pull: where N < 0 the wheel takes off (keeping its velocity along the
-    // path and its spin), as long as, let go for this step, it really leaves the track. If it would
-    // not, only the ground's friction, driving the body, is what lifts it, and the wheel stays down.
-    const N = (mw + mb) * (G * cb + kappa * s.v * s.v)
-      + mb * ((ldd - l * s.omega * s.omega) * cosTB - (2 * s.legV * s.omega + l * alpha) * sinTB);
-    const free = N < 0 ? fly(s.v * cb, s.v * sb, s.v / R) : null;
+    const metric = contactMetric(m, beta, p);
+    const force = [
+      -m.M * G * sb + roll + air - 2 * p.bodyMass * s.legV * s.omega * ct
+        + m.A * s.omega ** 2 * st + m.B * s.torsoOmega ** 2 * su,
+      G * m.A * m.sn + air * p.dragHeight * ct - 2 * m.A * s.legV * s.omega
+        + m.C * s.torsoOmega ** 2 * m.sd + centripetal * m.A * st,
+      G * m.B * m.st - 2 * m.B * s.legV * s.omega * m.cd
+        - m.C * s.omega ** 2 * m.sd + centripetal * m.B * su,
+      p.bodyMass * G + p.legStiffness * (lSet - s.leg)
+        - (p.legDamping + p.legStiffness * dt) * s.legV - p.bodyMass * G * m.cs
+        + m.A * s.omega ** 2 + m.B * s.torsoOmega ** 2 * m.cd - p.bodyMass * centripetal * ct,
+    ];
+    // Preserve the original acceleration control; solve its required pedal torque, then clamp it.
+    // Both links remain dynamic: no angle, angular velocity or hip target is prescribed.
+    const slopeAcc = -m.M * G * sb / (m.M + p.wheelMass);
+    const { tau, cmd } = pedalTorque(s, s.v, input, dt, p,
+      (a) => contactTorque(metric, force, s, a, dt, p), slopeAcc);
+    force[0] += tau / R; force[1] -= tau;
+    const { acc, hipTau } = jointAccelerations(metric, force, s, dt, p, 1);
+    const [a, alpha, torsoAlpha, ldd] = acc;
+    const normal = m.M * (G * cb + centripetal) + p.bodyMass * ldd * ct
+      - (2 * p.bodyMass * s.legV * s.omega + m.A * alpha) * st
+      - m.B * torsoAlpha * su - m.A * s.omega ** 2 * ct - m.B * s.torsoOmega ** 2 * cu;
+    const free = normal < 0 ? fly(s, s.v * cb, s.v * sb, s.v / R, input, dt, lSet, p) : null;
     if (free && !cutsTrack(p.track, free.x, free.y, R)) {
       Object.assign(s, free);
-      s.airborne = true;
     } else {
-      // semi-implicit Euler
-      s.v += acc * dt;
-      s.omega += alpha * dt;
-      s.legV += ldd * dt;
+      s.v += a * dt; s.omega += alpha * dt; s.torsoOmega += torsoAlpha * dt; s.legV += ldd * dt;
+      s.theta += s.omega * dt; s.torsoTheta += s.torsoOmega * dt;
+      s.leg = Math.max(p.legMin, s.leg + s.legV * dt);
+      if (s.leg <= p.legMin && s.legV < 0) bottomOut(s, p);
       rollAlong(s, s.v * cb * dt, f, p);
-      s.theta += s.omega * dt;
-      s.leg += s.legV * dt;
       s.wheelOmega = s.v / R;
-      s.acc = acc; s.accCmd = cmd; s.alpha = alpha; s.tau = tau;
+      s.acc = a; s.accCmd = cmd; s.alpha = alpha; s.torsoAlpha = torsoAlpha; s.tau = tau; s.hipTau = hipTau;
     }
   } else {
     const x0 = s.x, y0 = s.y;
-    Object.assign(s, fly(s.v, s.vy, s.wheelOmega));
+    Object.assign(s, fly(s, s.v, s.vy, s.wheelOmega, input, dt, lSet, p));
     touchDown(s, x0, y0, p);
   }
-  if (s.leg < p.legMin) bottomOut(s, p);
+  if (s.leg <= p.legMin && s.legV < 0) bottomOut(s, p);
   s.wheelAngle += s.wheelOmega * dt;
   s.t += dt;
   s.fallen = touchesGround(s, p);
@@ -270,60 +330,56 @@ function rollAlong(s, dx, f, p) {
   s.x = x; s.y = featureY(next, x); s.vy = s.v * Math.sin(featureBeta(next, x));
 }
 
-// Impacts: the contact impulse acts on the wheel only. The body hangs on a pin and rides on the legs,
-// which deliver finite torque and force, so none of them passes an impulse: momentum conjugate to every
-// motion the contact still allows (the body's pitch and its slide on the legs among them) is
-// conserved, the rest is lost. Impacts never add energy.
+// Every plastic impact is a projection in the multibody kinetic mass metric. All momenta
+// conjugate to allowed motion are conserved; the discarded velocity can only remove energy.
+function internalMomenta(s, m, vx, vy, p) {
+  return [
+    m.A * (vx * m.cs - vy * m.sn) + m.D * s.omega + m.C * m.cd * s.torsoOmega,
+    m.B * (vx * m.ct - vy * m.st) + m.C * m.cd * s.omega + m.E * s.torsoOmega + m.F * s.legV,
+    p.bodyMass * (vx * m.sn + vy * m.cs + s.legV) + m.F * s.torsoOmega,
+  ];
+}
 
-/** The wheel, moving with axle velocity (vx, vy) and spin `spin` (rad/s, + rolling toward +x), hits
- *  terrain it then rolls along at angle beta: sets the rolling speed v, the body's omega and the
- *  legs' legV. With `locked` legs (at their stop) the body slides on them no more: legV = 0. */
+/** Plastic normal contact and no-slip rim: wheel path speed and all three shape velocities are
+ *  solved jointly. Finite hip/leg forces do not transmit impulses across their free coordinates. */
 function rollOnto(s, beta, vx, vy, spin, p, locked = false) {
-  const R = p.wheelRadius, mw = p.wheelMass, mb = p.bodyMass, l = s.leg;
-  const Iw = mw * R * R, Mt = mw + mb + Iw / (R * R), I = p.bodyInertia + mb * l * l;
-  const c = mb * l * Math.cos(s.theta + beta), d = mb * Math.sin(s.theta + beta), dAfter = locked ? 0 : d;
-  const sin = Math.sin(s.theta), cos = Math.cos(s.theta);
-  // momenta conjugate to rolling along beta, body pitch and the legs; after the impact they are
-  // Mt·v + c·omega + d·legV, c·v + I·omega and d·v + mb·legV
-  const pRoll = (mw + mb) * (vx * Math.cos(beta) + vy * Math.sin(beta)) + (Iw * spin) / R + c * s.omega + d * s.legV;
-  const pPitch = mb * l * (vx * cos - vy * sin) + I * s.omega;
-  const pLeg = mb * (vx * sin + vy * cos + s.legV);
-  s.v = (pRoll - (c * pPitch) / I - (dAfter * pLeg) / mb) / (Mt - (c * c) / I - (dAfter * dAfter) / mb);
-  s.omega = (pPitch - c * s.v) / I;
-  s.legV = locked ? 0 : (pLeg - d * s.v) / mb;
+  const m = links(s, p), metric = contactMetric(m, beta, p), cb = Math.cos(beta), sb = Math.sin(beta);
+  const momentum = [
+    m.M * (vx * cb + vy * sb) + p.wheelMass * p.wheelRadius * spin
+      + metric[0][1] * s.omega + metric[0][2] * s.torsoOmega + metric[0][3] * s.legV,
+    ...internalMomenta(s, m, vx, vy, p),
+  ];
+  const velocity = solve(metric, momentum, locked ? 3 : 4);
+  [s.v, s.omega, s.torsoOmega] = velocity;
+  s.legV = locked ? 0 : velocity[3];
+  s.wheelOmega = s.v / p.wheelRadius;
 }
 
-/** The wheel, moving with axle velocity (vx, vy), is stopped dead by an edge: the body keeps its
- *  angular momentum about the axle, so the momentum of the stopped motion pitches it forward, and
- *  its momentum along its axis, which it carries on into the legs. */
+/** A tall edge pins the axle and wheel spin, leaving both angles and the leg coordinate free. */
 function stopAgainst(s, vx, vy, p) {
-  const mb = p.bodyMass, l = s.leg, sin = Math.sin(s.theta), cos = Math.cos(s.theta);
-  s.omega += (mb * l * (vx * cos - vy * sin)) / (p.bodyInertia + mb * l * l);
-  s.legV += vx * sin + vy * cos;
-  s.v = 0;
+  const m = links(s, p), C = m.C * m.cd;
+  const metric = [[m.D, C, 0], [C, m.E, m.F], [0, m.F, p.bodyMass]];
+  [s.omega, s.torsoOmega, s.legV] = solve(metric, internalMomenta(s, m, vx, vy, p));
+  s.v = 0; s.wheelOmega = 0;
 }
 
-/** The legs bottom out at legMin: an inelastic stop along the body axis (legV → 0), not a fall. In
- *  flight the clamp preserves the centre of mass's position and velocity, angular momentum and wheel
- *  spin; on the ground the wheel rolls on (rollOnto with the legs locked). */
+/** The step reaches the hard-stop configuration before this mass-metric velocity projection.
+ *  No angle is moved. In flight the COM velocity and angular momentum remain unchanged. */
 function bottomOut(s, p) {
-  const l = s.leg;
-  s.leg = p.legMin;
   if (s.airborne) {
-    const f = p.bodyMass / (p.wheelMass + p.bodyMass), mu = p.wheelMass * f;
-    const sin = Math.sin(s.theta), cos = Math.cos(s.theta), omega = s.omega;
-    s.omega *= (p.bodyInertia + mu * l * l) / (p.bodyInertia + mu * s.leg * s.leg);
-    const shift = f * (l - s.leg), radial = f * Math.min(s.legV, 0);
-    const tangent = f * (l * omega - s.leg * s.omega);
-    s.x += shift * sin; s.y += shift * cos;
-    s.v += radial * sin + tangent * cos; s.vy += radial * cos - tangent * sin;
-    s.legV = Math.max(s.legV, 0);
+    const m = links(s, p), metric = flightMetric(m, p), before = comOffset(s, m, p);
+    const momentum = [
+      metric[0][0] * s.omega + metric[0][1] * s.torsoOmega,
+      metric[1][0] * s.omega + metric[1][1] * s.torsoOmega + metric[1][2] * s.legV,
+    ];
+    [s.omega, s.torsoOmega] = solve(metric, momentum);
+    s.legV = 0;
+    const after = comOffset(s, m, p);
+    s.v += before.vx - after.vx; s.vy += before.vy - after.vy;
   } else {
-    if (s.legV >= 0) return;
     const R = p.wheelRadius, beta = featureBeta(supportFeature(p.track, s.x, R), s.x);
     rollOnto(s, beta, s.v * Math.cos(beta), s.v * Math.sin(beta), s.v / R, p, true);
-    s.vy = s.v * Math.sin(beta); s.wheelOmega = s.v / R;
-    s.legV = 0;
+    s.vy = s.v * Math.sin(beta);
   }
 }
 

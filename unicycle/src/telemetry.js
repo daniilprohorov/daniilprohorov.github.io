@@ -20,6 +20,10 @@ export class Telemetry {
       airborne: s.airborne ? 1 : 0, charge: +s.charge.toFixed(4), level: levelIndex,
       thetaDeg: +(s.theta * 180 / Math.PI).toFixed(3), omega: +s.omega.toFixed(4),
       alpha: +s.alpha.toFixed(3), tau: +s.tau.toFixed(2),
+      torsoThetaDeg: +(s.torsoTheta * 180 / Math.PI).toFixed(3),
+      torsoOmega: +s.torsoOmega.toFixed(4), torsoAlpha: +s.torsoAlpha.toFixed(3),
+      hipAngleDeg: +((s.torsoTheta - s.theta) * 180 / Math.PI).toFixed(3),
+      hipOmega: +(s.torsoOmega - s.omega).toFixed(4), hipTau: +s.hipTau.toFixed(2),
     });
   }
 
@@ -47,7 +51,7 @@ export class Telemetry {
   }
 }
 
-const LOG_COLS = ['run', 't', 'input', 'x', 'v', 'acc', 'thetaDeg', 'omega', 'alpha', 'tau', 'y', 'vy', 'wheelOmega', 'airborne', 'charge', 'level'];
+const LOG_COLS = ['run', 't', 'input', 'x', 'v', 'acc', 'thetaDeg', 'omega', 'alpha', 'tau', 'torsoThetaDeg', 'torsoOmega', 'torsoAlpha', 'hipAngleDeg', 'hipOmega', 'hipTau', 'y', 'vy', 'wheelOmega', 'airborne', 'charge', 'level'];
 function toCsv(rows, header) {
   const lines = rows.map((r) => LOG_COLS.map((c) => r[c]).join(','));
   return (header ? [LOG_COLS.join(','), ...lines] : lines).join('\n');

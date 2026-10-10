@@ -1,4 +1,4 @@
-import { SEAT, SHOULDER, HEAD, HEAD_R, THIGH, SHIN, armPoints } from './rider-geometry.js';
+import { SEAT, HIP, SHOULDER, HEAD, HEAD_R, THIGH, SHIN, bodyPoint, armPoints } from './rider-geometry.js';
 import { groundY } from './terrain.js';
 
 const MENU_ROW = 36; // px, height of a level's row in the menu
@@ -85,7 +85,7 @@ export function render(ctx, viewport, s, p, ui) {
   if (ui.level) ctx.fillText(`${ui.level.name}   Time: ${s.t.toFixed(2)} s   Best: ${best ? best.toFixed(2) + ' s' : '—'}   To the finish: ${Math.max(0, p.finish - s.x).toFixed(0)} m`, 12, 22);
   ctx.fillText('← → / A D — pedal,  ↑ / W / Space — jump (hold to charge),  L — download physics log (CSV)', 12, 42);
   ctx.font = '12px monospace'; ctx.fillStyle = '#345';
-  ctx.fillText(`v=${s.v.toFixed(2)} m/s  a=${s.acc.toFixed(2)}  θ=${(s.theta * 180 / Math.PI).toFixed(1)}°  ω=${s.omega.toFixed(2)}  α=${s.alpha.toFixed(2)}  τ=${s.tau.toFixed(0)} N·m`, 12, 62);
+  ctx.fillText(`v=${s.v.toFixed(2)} m/s  a=${s.acc.toFixed(2)}  θ=${(s.theta * 180 / Math.PI).toFixed(1)}°  hip=${((s.torsoTheta - s.theta) * 180 / Math.PI).toFixed(1)}°  ω=${s.omega.toFixed(2)}  α=${s.alpha.toFixed(2)}  τ=${s.tau.toFixed(0)} N·m`, 12, 62);
   // jump charge: fills while jump is held, lit orange during the push-off
   ctx.fillText('jump', 12, 82);
   ctx.strokeStyle = '#345'; ctx.lineWidth = 1; ctx.strokeRect(50.5, 72.5, 120, 12);
@@ -119,16 +119,18 @@ function drawRider(ctx, s, p, P, scale) {
   const R = p.wheelRadius;
   const sn = Math.sin(s.theta), cs = Math.cos(s.theta);
   const axX = s.x, axY = s.y;
-  const along = (d, side = 0) => [axX + d * sn + side * cs, axY + d * cs - side * sn];
   const S = ([x, y]) => P(x, y);
   const wheelAngle = s.wheelAngle; // the wheel's own spin (rolling on the ground, free in the air); + is clockwise on screen
   const axle = [axX, axY];
   const crank = p.crankLength;
   const pedal = (phase) => [axX + crank * Math.cos(wheelAngle + phase), axY - crank * Math.sin(wheelAngle + phase)];
   const pedalR = pedal(0), pedalL = pedal(Math.PI);
-  // the body (seat included) rides on the legs: bent legs lower it toward the wheel
-  const body = (d, side = 0) => along(d + s.leg - p.bodyCom, side);
-  const hip = body(SEAT + 0.05), shoulder = body(SHOULDER), head = body(HEAD);
+  // All rider landmarks use the same articulated geometry as terrain contact.
+  const body = (d, side = 0) => {
+    const point = bodyPoint(s, d, p);
+    return [point.x + side * cs, point.y - side * sn];
+  };
+  const hip = body(HIP), shoulder = body(SHOULDER), head = body(HEAD);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
   // far leg (behind wheel)
