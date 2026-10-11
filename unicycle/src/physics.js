@@ -1,5 +1,5 @@
 import { featureY, featureBeta, supportFeature, inDomain, cutsTrack, nearestOnTrack, trackPoint, crosses, distToSegment } from './terrain.js';
-import { SEAT, HIP, SHOULDER, HEAD, HEAD_R, bodyPoint, armPoints } from './rider-geometry.js';
+import { SEAT, HIP, SHOULDER, HEAD, HEAD_R, DRAG, bodyPoint, armPoints } from './rider-geometry.js';
 
 // A rolling wheel, telescoping lower link and hinged torso, planar. Both absolute angles are
 // measured clockwise from vertical. Pedals and the hip spring exchange equal/opposite torques;
@@ -55,16 +55,26 @@ export const DEFAULT_PARAMS = {
   rollingResistance: 0.015, // rolling resistance coefficient (tyre on asphalt)
   dragArea: 0.5,       // m², Cd·A of an upright rider
   airDensity: 1.2,     // kg/m³
-  dragHeight: 0.9,     // m, centre of air pressure above the axle
+  wind: null,          // level wind { mean, swing, period, gust } in m/s and s (see windSpeed); null = still air
   timeScale: 0.65,     // game time slowdown for playability
   crankLength: 0.125,  // m
   track: [[-1e6, 0], [1e6, 0]], // terrain polyline of [x, y] points, m, ordered by x; flat floor by default
   finish: Infinity,    // m, the finish line's x: the run is over (`finished`) once the axle crosses it
-  levelUrls: ['learning', 'ledges', 'pits', 'muni'].map((n) => new URL(`../levels/${n}.json`, import.meta.url).href), // level JSONs { name, points, start, finish } listed in the menu; fetched, so they need the dev server
+  levelUrls: ['learning', 'ledges', 'pits', 'muni', 'windy'].map((n) => new URL(`../levels/${n}.json`, import.meta.url).href), // level JSONs { name, points, start, finish, wind? } listed in the menu; fetched, so they need the dev server
   unicycleUrls: ['24', '26'].map((n) => new URL(`../unicycles/${n}.json`, import.meta.url).href), // unicycle JSONs { name, ...params } listed in the menu; each overrides these params
   consoleLog: true,    // log input changes and falls to the console
   logEndpoint: null,   // URL to POST log rows to every second (see dev-server.js); null = off
 };
+
+/** Horizontal wind at game time t, m/s (+ blows to the right). A slow swing between tail- and
+ *  headwind around `mean`, plus gusts: incommensurate sines of `gust` amplitude, so they don't repeat. */
+export function windSpeed(t, p) {
+  const w = p.wind;
+  if (!w) return 0;
+  const TAU = 2 * Math.PI;
+  return w.mean + w.swing * Math.sin(TAU * t / w.period)
+    + w.gust * (0.6 * Math.sin(TAU * t / 6.7 + 1.3) + 0.4 * Math.sin(TAU * t / 2.9 + 0.4));
+}
 
 /** Initial state: at rest with the wheel on the track `p.track` at `x` (a level's `start`). */
 export function createState(x = 0, p = DEFAULT_PARAMS) {
@@ -297,16 +307,20 @@ export function step(s, input, jump, dt, p = DEFAULT_PARAMS, hip = null) {
     const su = Math.sin(s.torsoTheta + beta), cu = Math.cos(s.torsoTheta + beta);
     const centripetal = curvature * s.v * s.v;
     const roll = -p.rollingResistance * m.M * G * cb * Math.tanh(s.v / 0.1);
-    const air = -0.5 * p.airDensity * p.dragArea * s.v * Math.abs(s.v);
+    const vAir = s.v - windSpeed(s.t, p) * cb; // rider's speed through the air along the slope
+    const air = -0.5 * p.airDensity * p.dragArea * vAir * Math.abs(vAir);
+    // the air force acts along the slope at the centre of pressure DRAG on the torso; its generalised
+    // forces follow from that point's position r_w + hipHeight·e(theta) + (DRAG − HIP)·e(torsoTheta)
+    const hipHeight = s.leg + p.seatHeight + HIP - p.bodyCom;
     const metric = contactMetric(m, beta, p);
     const force = [
       -m.M * G * sb + roll + air - 2 * p.bodyMass * s.legV * s.omega * ct
         + m.A * s.omega ** 2 * st + m.B * s.torsoOmega ** 2 * su,
-      G * m.A * m.sn + air * p.dragHeight * ct - 2 * m.A * s.legV * s.omega
+      G * m.A * m.sn + air * hipHeight * ct - 2 * m.A * s.legV * s.omega
         + m.C * s.torsoOmega ** 2 * m.sd + centripetal * m.A * st,
-      G * m.B * m.st - 2 * m.B * s.legV * s.omega * m.cd
+      G * m.B * m.st + air * (DRAG - HIP) * cu - 2 * m.B * s.legV * s.omega * m.cd
         - m.C * s.omega ** 2 * m.sd + centripetal * m.B * su,
-      p.bodyMass * G + p.legStiffness * (lSet - s.leg)
+      p.bodyMass * G + air * st + p.legStiffness * (lSet - s.leg)
         - (p.legDamping + p.legStiffness * dt) * s.legV - p.bodyMass * G * m.cs
         + m.A * s.omega ** 2 + m.B * s.torsoOmega ** 2 * m.cd - p.bodyMass * centripetal * ct,
     ];

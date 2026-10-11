@@ -2,6 +2,8 @@
 // (the seat itself sits `p.seatHeight` above the axle, set by the unicycle); the seat and hip
 // follow the lower link, while the upper body rotates about the hip independently.
 export const SEAT = 0, HIP = SEAT + 0.05, SHOULDER = 0.55, HEAD = 0.72, HEAD_R = 0.13;
+// centre of air pressure: mid-torso, between hip and shoulders
+export const DRAG = (HIP + SHOULDER) / 2;
 export const THIGH = 0.46, SHIN = 0.46;
 const ARM = 0.6;
 

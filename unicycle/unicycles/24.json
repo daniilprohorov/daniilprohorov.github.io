@@ -1,0 +1,13 @@
+{
+  "name": "24\" · 125 mm cranks",
+  "wheelRadius": 0.3,
+  "tyreWidth": 0.05,
+  "wheelMass": 3,
+  "crankLength": 0.125,
+  "seatHeight": 0.75,
+  "bodyCom": 0.9,
+  "legMin": 0.7,
+  "leanTorqueBoost": 40,
+  "coastTorque": 20,
+  "maxCadence": 200
+}

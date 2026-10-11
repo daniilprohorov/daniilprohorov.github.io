@@ -1,0 +1,7 @@
+{
+  "name": "Windy",
+  "points": [[-20,0], [160,0]],
+  "start": 0,
+  "finish": 140,
+  "wind": { "mean": 0, "swing": 6, "period": 30, "gust": 4 }
+}

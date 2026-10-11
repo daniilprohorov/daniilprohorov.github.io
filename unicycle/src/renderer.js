@@ -1,5 +1,6 @@
 import { SEAT, HIP, SHOULDER, HEAD, HEAD_R, THIGH, SHIN, bodyPoint, armPoints } from './rider-geometry.js';
 import { groundY } from './terrain.js';
+import { windSpeed } from './physics.js';
 
 const MENU_ROW = 36; // px, height of a level's row in the menu
 
@@ -106,6 +107,7 @@ export function render(ctx, viewport, s, p, ui) {
   ctx.strokeStyle = '#345'; ctx.lineWidth = 1; ctx.strokeRect(50.5, 72.5, 120, 12);
   ctx.fillStyle = s.push > 0 ? '#ef6c00' : '#1565c0'; ctx.fillRect(52, 74, 117 * s.charge, 9);
   ctx.restore();
+  if (p.wind && !ui.menu) drawWind(ctx, windSpeed(s.t, p), w / 2, 100);
   if (ui.menu) {
     ctx.fillStyle = 'rgba(10,20,30,0.55)'; ctx.fillRect(0, 0, w, h);
     ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
@@ -205,6 +207,24 @@ function drawLeg(ctx, S, hip, foot, color, scale) {
   const knee = [hip[0] + Math.cos(ka) * THIGH, hip[1] + Math.sin(ka) * THIGH];
   ctx.strokeStyle = color; ctx.lineWidth = scale * 0.07;
   ctx.beginPath(); ctx.moveTo(...S(hip)); ctx.lineTo(...S(knee)); ctx.lineTo(...S(foot)); ctx.stroke();
+}
+
+// Worms-style wind gauge centred at (cx, y): arrows >>> (to the right) or <<< (to the left) grow
+// from the middle, one per WIND_STEP m/s, with the speed written above.
+const WIND_STEP = 1, WIND_MAX = 10;
+function drawWind(ctx, wind, cx, y) {
+  const half = 110, n = Math.min(WIND_MAX, Math.round(Math.abs(wind) / WIND_STEP)), dir = Math.sign(wind);
+  ctx.save();
+  ctx.fillStyle = 'rgba(10,20,30,0.6)'; ctx.fillRect(cx - half - 4, y - 12, 2 * half + 8, 24);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(cx - half - 3.5, y - 11.5, 2 * half + 7, 23);
+  line(ctx, [cx, y - 11], [cx, y + 11]);
+  ctx.font = 'bold 16px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = Math.abs(wind) > 6 ? '#ff7043' : '#ffd54f';
+  const gap = half / WIND_MAX;
+  for (let i = 0; i < n; i++) ctx.fillText(dir > 0 ? '>' : '<', cx + dir * (i + 0.5) * gap, y + 1);
+  ctx.font = '12px sans-serif'; ctx.fillStyle = '#123';
+  ctx.fillText(`wind ${Math.abs(wind).toFixed(1)} m/s ${wind > 0.05 ? '→' : wind < -0.05 ? '←' : ''}`, cx, y - 22);
+  ctx.restore();
 }
 
 function line(ctx, [x1, y1], [x2, y2]) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }

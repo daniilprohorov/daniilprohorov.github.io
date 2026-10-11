@@ -1,5 +1,5 @@
 // Browser lifecycle and game coordination. Physics and drawing remain independent.
-import { DEFAULT_PARAMS, createState, step, autoHip } from './physics.js';
+import { DEFAULT_PARAMS, createState, step, autoHip, windSpeed } from './physics.js';
 import { render, menuRowAt, onUnicycleRow } from './renderer.js';
 import { Telemetry } from './telemetry.js';
 
@@ -78,6 +78,7 @@ export class UnicycleGame {
     this.level = this.levels[this.levelIndex];
     this.p.track = this.level.points;
     this.p.finish = this.level.finish;
+    this.p.wind = this.level.wind ?? null;
     this.s = createState(this.level.start, this.p);
   }
 
@@ -189,7 +190,7 @@ export class UnicycleGame {
   }
 
   record(input) {
-    this.telemetry.record(this.s, input, this.run, this.levelIndex, MODE_ORDER.indexOf(this.torsoMode), this.unicycleIndex);
+    this.telemetry.record(this.s, input, this.run, this.levelIndex, MODE_ORDER.indexOf(this.torsoMode), this.unicycleIndex, windSpeed(this.s.t, this.p));
   }
 
 

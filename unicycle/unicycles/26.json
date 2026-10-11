@@ -1,0 +1,13 @@
+{
+  "name": "26\" × 3\" · 170 mm cranks",
+  "wheelRadius": 0.355,
+  "tyreWidth": 0.076,
+  "wheelMass": 4,
+  "crankLength": 0.17,
+  "seatHeight": 0.705,
+  "bodyCom": 0.855,
+  "legMin": 0.655,
+  "leanTorqueBoost": 54,
+  "coastTorque": 27,
+  "maxCadence": 147
+}
