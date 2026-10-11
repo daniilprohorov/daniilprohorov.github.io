@@ -1,21 +1,74 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Daniil Prohorov — проекты</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }
-    a { color: #06c; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>~ Daniil Prohorov's Homepage ~</title>
+<style>
+  body { margin: 0; font-family: "Comic Sans MS", "Comic Sans", cursive; color: #000080; background: #fff; }
+  marquee { background: #ff00ff; color: #fff; font-weight: bold; padding: 4px; font-size: 20px; }
+  h1 { text-align: center; font-size: 44px; margin: 16px 0 4px; color: #0000cc;
+    text-shadow: 3px 3px #ff99ff; animation: rb 2s linear infinite; }
+  @keyframes rb { 50% { color: #cc0066 } }
+  .blink { animation: bl 1s steps(1) infinite; } @keyframes bl { 50% { visibility: hidden } }
+  .uc { text-align: center; color: #000; background: repeating-linear-gradient(45deg,#fc0 0 14px,#000 14px 28px);
+    width: 360px; margin: 6px auto; padding: 3px; }
+  .uc span { background: #fc0; padding: 2px 8px; font-weight: bold; }
+  table.main { margin: 14px auto; border-collapse: separate; border-spacing: 10px; }
+  td.side { width: 210px; vertical-align: top; }
+  .box { border: 4px ridge #c0c0c0; background: #000080; color: #fff; padding: 8px; text-align: center; margin-bottom: 10px; }
+  .box h3 { margin: 0 0 6px; color: #00ff00; font-size: 16px; }
+  .clock-svg { width: 160px; } .clock-face { fill: #fff; stroke: #ff00ff; stroke-width: 3 }
+  .clock-ticks { stroke: #000 } .clock-nums { fill: #000080; font-weight: bold }
+  .clock-h, .clock-m { stroke: #000 } .clock-s { stroke: red } .clock-pin { fill: red }
+  .clock-label { color: #0f0; font-family: monospace; }
+  .cal { font-size: 12px; color: #fff; margin: auto; } .cal caption { color: #ff0; font-weight: bold }
+  .cal td, .cal th { padding: 2px 3px; text-align: center } .cal .we { color: #f66 }
+  .cal .today { background: #ff00ff; color: #fff; font-weight: bold }
+  .w-temp { font-size: 28px; color: #fff } .w-icon { font-size: 28px } .w-extra { font-size: 11px; color: #aaf }
+  td.center { vertical-align: top; width: 560px; }
+  .proj { text-align: center; margin-bottom: 24px; }
+  .proj img { width: 480px; max-width: 100%; border: 8px outset #c0c0c0; display: block; margin: 0 auto; }
+  .proj .cap { color: #fff; background: #800080; display: inline-block; padding: 4px 12px; margin-top: 6px; }
+  a { color: #00ffff; } a:visited { color: #ff99ff; }
+  hr.rainbow { height: 6px; border: 0; background: linear-gradient(90deg,red,orange,yellow,lime,cyan,blue,magenta); }
+  .counter { font-family: monospace; background: #000; color: #0f0; border: 2px inset #888; padding: 2px 6px; letter-spacing: 3px; }
+  footer { text-align: center; font-size: 12px; padding-bottom: 20px; }
+</style>
 </head>
 <body>
-  <h1>Daniil Prohorov</h1>
-  <h2>Проекты</h2>
-  <ul>
-    <li><a href="./bikeGeometry/">Bike Geometry</a></li>
-    <li><a href="./unicycle/">Unicycle</a></li>
-  </ul>
-  <p><a href="./assets/cv.pdf">CV (PDF)</a></p>
+<marquee scrollamount="8">★ ★ ★ Добро пожаловать на мою домашнюю страничку!!! ★ ★ ★</marquee>
+<h1>~ Daniil Prohorov ~</h1>
+<div class="uc"><span>🚧 UNDER CONSTRUCTION 🚧</span></div>
+<hr class="rainbow">
+<table class="main"><tr>
+  <td class="side">
+    <div class="box"><h3>⏰ Который час?</h3><div data-clock></div></div>
+    <div class="box"><h3>📅 Календарик</h3><div data-calendar></div></div>
+  </td>
+  <td class="center">
+    <h2 style="text-align:center;color:#800080">✨ Мои проекты ✨ <span class="blink" style="color:red">NEW!</span></h2>
+    <div class="proj">
+      <a href="./bikeGeometry/"><img src="./assets/screenshots/bikeGeometry.png" alt="Bike Geometry"></a>
+      <div class="cap">🚲 <a href="./bikeGeometry/">Bike Geometry</a> — геометрия велосипеда</div>
+    </div>
+    <div class="proj">
+      <a href="./unicycle/"><img src="./assets/screenshots/unicycle.png" alt="Unicycle"></a>
+      <div class="cap">🎪 <a href="./unicycle/">Unicycle</a> — игра про моноцикл</div>
+    </div>
+  </td>
+  <td class="side">
+    <div class="box"><h3>🌦 Погода в Питере</h3><div data-weather></div></div>
+    <div class="box"><h3>📄 Обо мне</h3><a href="./assets/cv.pdf">Скачать CV (PDF)</a></div>
+    <div class="box"><h3>Вы посетитель №</h3><span class="counter" data-counter></span></div>
+  </td>
+</tr></table>
+<hr class="rainbow">
+<footer>© <span id="years">2026</span></footer>
+<script src="./assets/widgets.js"></script>
+<script>
+  const y = new Date().getFullYear();
+  if (y > 2026) document.getElementById("years").textContent = "2026–" + y;
+</script>
 </body>
 </html>
