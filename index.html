@@ -26,11 +26,28 @@
   .cal td, .cal th { padding: 2px 3px; text-align: center } .cal .we { color: #f66 }
   .cal .today { background: #ff00ff; color: #fff; font-weight: bold }
   .w-temp { font-size: 28px; color: #fff } .w-icon { font-size: 28px } .w-extra { font-size: 11px; color: #aaf }
+  .md5-in { width: 100%; box-sizing: border-box; font-family: monospace; }
+  .md5-out { font-family: monospace; font-size: 11px; color: #0f0; word-break: break-all; margin-top: 6px; }
+  .rates { margin: auto; color: #fff; font-size: 13px; } .rates td { padding: 1px 2px; text-align: left; white-space: nowrap }
+  .rates .r-val { text-align: right; font-family: monospace; } .r-up { color: #0f0 } .r-down { color: #f66 }
+  .r-date { font-size: 11px; color: #aaf; margin-top: 4px; }
   td.center { vertical-align: top; width: 560px; }
   .proj { text-align: center; margin-bottom: 24px; }
   .proj img { width: 480px; max-width: 100%; border: 8px outset #c0c0c0; display: block; margin: 0 auto; }
   .proj .cap { color: #fff; background: #800080; display: inline-block; padding: 4px 12px; margin-top: 6px; }
   a { color: #00ffff; } a:visited { color: #ff99ff; }
+  .tabs { text-align: center; margin-bottom: 8px; }
+  .tabs a { display: inline-block; padding: 4px 16px; background: #c0c0c0; color: #000; border: 3px outset #c0c0c0; text-decoration: none; font-weight: bold; }
+  .tabs a.on { border-style: inset; background: #ff00ff; color: #fff; }
+  .post { border: 4px ridge #c0c0c0; padding: 8px 12px; margin-bottom: 16px; text-align: left; }
+  .post-date { display: inline-block; background: #800080; padding: 2px 10px; font-size: 13px; }
+  .post img { max-width: 100%; border: 6px outset #c0c0c0; display: block; margin: 8px auto 0; }
+  .post-text { margin-top: 8px; color: #000; overflow-wrap: anywhere; }
+  .post-text a { color: #0000ee; } .post-text a:visited { color: #551a8b; }
+  .post-text blockquote { border-left: 4px solid #ff00ff; margin: 6px 0; padding-left: 8px; }
+  .pager { text-align: center; font-weight: bold; }
+  .pager a, .pager b { display: inline-block; margin: 0 3px; padding: 2px 8px; border: 2px outset #c0c0c0; background: #000080; color: #fff; text-decoration: none; }
+  .pager b { border-style: inset; background: #ff00ff; }
   hr.rainbow { height: 6px; border: 0; background: linear-gradient(90deg,red,orange,yellow,lime,cyan,blue,magenta); }
   .counter { font-family: monospace; background: #000; color: #0f0; border: 2px inset #888; padding: 2px 6px; letter-spacing: 3px; }
   footer { text-align: center; font-size: 12px; padding-bottom: 20px; }
@@ -45,20 +62,29 @@
   <td class="side">
     <div class="box"><h3>⏰ Который час?</h3><div data-clock></div></div>
     <div class="box"><h3>📅 Календарик</h3><div data-calendar></div></div>
+    <div class="box"><h3>🌦 Погода в Питере</h3><div data-weather></div></div>
   </td>
   <td class="center">
-    <h2 style="text-align:center;color:#800080">✨ Мои проекты ✨ <span class="blink" style="color:red">NEW!</span></h2>
-    <div class="proj">
-      <a href="./bikeGeometry/"><img src="./assets/screenshots/bikeGeometry.png" alt="Bike Geometry"></a>
-      <div class="cap">🚲 <a href="./bikeGeometry/">Bike Geometry</a> — геометрия велосипеда</div>
+    <div class="tabs"><a href="#" data-tab="projects">✨ Проекты</a> <a href="#blog" data-tab="blog">📝 Блог</a></div>
+    <div id="tab-projects">
+      <h2 style="text-align:center;color:#800080">✨ Мои проекты ✨ <span class="blink" style="color:red">NEW!</span></h2>
+      <div class="proj">
+        <a href="./unicycle/"><img src="./assets/screenshots/unicycle.png" alt="Unicycle"></a>
+        <div class="cap">🎪 <a href="./unicycle/">Unicycle</a> — игра про уницикл</div>
+      </div>
+      <div class="proj">
+        <a href="./bikeGeometry/"><img src="./assets/screenshots/bikeGeometry.png" alt="Bike Geometry"></a>
+        <div class="cap">🚲 <a href="./bikeGeometry/">Bike Geometry</a> — геометрия велосипеда</div>
+      </div>
     </div>
-    <div class="proj">
-      <a href="./unicycle/"><img src="./assets/screenshots/unicycle.png" alt="Unicycle"></a>
-      <div class="cap">🎪 <a href="./unicycle/">Unicycle</a> — игра про моноцикл</div>
+    <div id="tab-blog" hidden>
+      <h2 style="text-align:center;color:#800080">📝 Блог 📝</h2>
+      <div data-blog="./blog/posts.json"></div>
     </div>
   </td>
   <td class="side">
-    <div class="box"><h3>🌦 Погода в Питере</h3><div data-weather></div></div>
+    <div class="box"><h3>💱 Курс валют</h3><div data-rates></div></div>
+    <div class="box"><h3>🔐 MD5-хэшер</h3><div data-md5></div></div>
     <div class="box"><h3>📄 Обо мне</h3><a href="./assets/cv.pdf">Скачать CV (PDF)</a></div>
     <div class="box"><h3>Вы посетитель №</h3><span class="counter" data-counter></span></div>
   </td>
@@ -69,6 +95,15 @@
 <script>
   const y = new Date().getFullYear();
   if (y > 2026) document.getElementById("years").textContent = "2026–" + y;
+  // Вкладки центральной колонки: #blog, #blog/<N> — блог, иначе проекты.
+  const showTab = () => {
+    const tab = location.hash.startsWith("#blog") ? "blog" : "projects";
+    document.getElementById("tab-projects").hidden = tab !== "projects";
+    document.getElementById("tab-blog").hidden = tab !== "blog";
+    document.querySelectorAll("[data-tab]").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
+  };
+  showTab();
+  addEventListener("hashchange", () => { showTab(); scrollTo(0, 0); });
 </script>
 </body>
 </html>

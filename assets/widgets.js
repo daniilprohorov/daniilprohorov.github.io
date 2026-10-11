@@ -90,16 +90,100 @@
     }
   }
 
+  // Курсы ЦБ РФ к рублю (cbr-xml-daily.ru, без ключа, CORS разрешён); номинал как у ЦБ (иена — за 100).
+  const RATES = [["USD", "🇺🇸", "$"], ["EUR", "🇪🇺", "€"], ["CNY", "🇨🇳", "¥ CNY"], ["JPY", "🇯🇵", "¥ JPY"]];
+  async function rates(el) {
+    try {
+      const d = await (await fetch("https://www.cbr-xml-daily.ru/daily_json.js")).json();
+      const rows = RATES.map(([code, flag, sign]) => {
+        const v = d.Valute[code];
+        const arrow = v.Value > v.Previous ? "▲" : v.Value < v.Previous ? "▼" : "";
+        return `<tr><td>${flag}</td><td>${v.Nominal > 1 ? v.Nominal + " " : ""}${sign}</td><td class="r-val">${v.Value.toFixed(2)} ₽</td><td class="${v.Value > v.Previous ? "r-up" : "r-down"}">${arrow}</td></tr>`;
+      }).join("");
+      const date = new Date(d.Date).toLocaleDateString("ru-RU", { timeZone: "Europe/Moscow" });
+      el.innerHTML = `<table class="rates">${rows}</table><div class="r-date">ЦБ РФ на ${date}</div>`;
+    } catch {
+      el.innerHTML = `<div class="r-date">нет данных</div>`;
+    }
+  }
+
   // Декоративный счётчик посетителей: +1 за каждый час с 22.08.2025 (≈10 000 в октябре 2026), считается один раз при загрузке.
   function counter(el) {
     const hours = Math.floor((Date.now() - Date.UTC(2025, 7, 22)) / 3600000);
     el.textContent = String(hours).padStart(7, "0");
   }
 
+  // MD5 (RFC 1321) от UTF-8 байтов строки; Web Crypto MD5 не поддерживает.
+  function md5(str) {
+    const bytes = new TextEncoder().encode(str);
+    const n = ((bytes.length + 8) >> 6) + 1, w = new Uint32Array(n * 16);
+    bytes.forEach((b, i) => { w[i >> 2] |= b << ((i % 4) * 8); });
+    w[bytes.length >> 2] |= 0x80 << ((bytes.length % 4) * 8);
+    w[n * 16 - 2] = bytes.length * 8;
+    w[n * 16 - 1] = Math.floor(bytes.length / 0x20000000);
+    const K = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 2 ** 32) >>> 0);
+    const S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+    let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+    for (let o = 0; o < w.length; o += 16) {
+      let a = a0, b = b0, c = c0, d = d0;
+      for (let i = 0; i < 64; i++) {
+        const r = i >> 4;
+        const f = r === 0 ? (b & c) | (~b & d) : r === 1 ? (d & b) | (~d & c) : r === 2 ? b ^ c ^ d : c ^ (b | ~d);
+        const g = r === 0 ? i : r === 1 ? (5 * i + 1) % 16 : r === 2 ? (3 * i + 5) % 16 : (7 * i) % 16;
+        const s = S[r * 4 + (i % 4)], t = (a + f + K[i] + w[o + g]) | 0;
+        a = d; d = c; c = b; b = (b + ((t << s) | (t >>> (32 - s)))) | 0;
+      }
+      a0 = (a0 + a) | 0; b0 = (b0 + b) | 0; c0 = (c0 + c) | 0; d0 = (d0 + d) | 0;
+    }
+    return [a0, b0, c0, d0].map(x => Array.from({ length: 4 }, (_, k) => ((x >>> (k * 8)) & 255).toString(16).padStart(2, "0")).join("")).join("");
+  }
+
+  function md5Widget(el) {
+    el.innerHTML = `<input class="md5-in" type="text" placeholder="введите строку"><div class="md5-out"></div>`;
+    const input = el.querySelector(".md5-in"), out = el.querySelector(".md5-out");
+    const update = () => { out.textContent = md5(input.value); };
+    input.addEventListener("input", update);
+    update();
+  }
+
+  // Посты блога из Telegram-канала: blog/posts.json (собирает scripts/tg_blog.py), по 5 на страницу, страница в хэше #blog/<N>.
+  const BLOG_PER_PAGE = 5;
+  async function blog(el) {
+    let posts;
+    try {
+      posts = await (await fetch(el.dataset.blog)).json();
+    } catch {
+      el.textContent = "нет данных";
+      return;
+    }
+    const render = () => {
+      const m = location.hash.match(/^#blog(?:\/(\d+))?$/);
+      if (!m) return;
+      const pages = Math.max(1, Math.ceil(posts.length / BLOG_PER_PAGE));
+      const cur = Math.min(Math.max(+(m[1] || 1), 1), pages);
+      const items = posts.slice((cur - 1) * BLOG_PER_PAGE, cur * BLOG_PER_PAGE).map(p => {
+        const date = new Date(p.date).toLocaleString("ru-RU", { timeZone: TZ, dateStyle: "long", timeStyle: "short" });
+        const photos = p.photos.map(src => `<img src="./${src}" alt="" loading="lazy">`).join("");
+        return `<div class="post"><div class="post-date"><a href="https://t.me/${p.id}" target="_blank" rel="noopener">${date}</a></div>${photos}<div class="post-text">${p.html}</div></div>`;
+      }).join("") || "<p>Пока пусто</p>";
+      const nav = pages < 2 ? "" : `<div class="pager">` +
+        (cur > 1 ? `<a href="#blog/${cur - 1}">« назад</a>` : "") +
+        Array.from({ length: pages }, (_, i) => i + 1 === cur ? `<b>${i + 1}</b>` : `<a href="#blog/${i + 1}">${i + 1}</a>`).join("") +
+        (cur < pages ? `<a href="#blog/${cur + 1}">вперёд »</a>` : "") + `</div>`;
+      el.innerHTML = items + nav;
+    };
+    render();
+    addEventListener("hashchange", render);
+  }
+
   function init() {
     document.querySelectorAll("[data-clock]").forEach(clock);
     document.querySelectorAll("[data-calendar]").forEach(calendar);
     document.querySelectorAll("[data-counter]").forEach(counter);
+    document.querySelectorAll("[data-md5]").forEach(md5Widget);
+    document.querySelectorAll("[data-blog]").forEach(blog);
+    const rs = document.querySelectorAll("[data-rates]");
+    if (rs.length) { const loadRates = () => rs.forEach(rates); loadRates(); setInterval(loadRates, 60 * 60 * 1000); }
     const ws = document.querySelectorAll("[data-weather]");
     const load = () => ws.forEach(weather);
     if (ws.length) { load(); setInterval(load, 30 * 60 * 1000); }
