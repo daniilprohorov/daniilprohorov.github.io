@@ -8,11 +8,15 @@ import { SEAT, HIP, SHOULDER, HEAD, HEAD_R, bodyPoint, armPoints } from './rider
 
 const G = 9.81;
 
+// The 24" unicycle (`unicycles/24.json`); the game overwrites the unicycle's fields with the one
+// picked in the menu (`unicycleUrls`).
 export const DEFAULT_PARAMS = {
-  wheelRadius: 0.3,    // m (24" wheel)
+  wheelRadius: 0.3,    // m (24" wheel), to the tread
+  tyreWidth: 0.05,     // m (2" tyre), drawing only: the tyre's section, so the rim is at wheelRadius − tyreWidth
   wheelMass: 3,        // kg
   bodyMass: 70,        // kg, rider + frame
   bodyCom: 0.9,        // m, center of mass above axle with the legs at their riding length
+  seatHeight: 0.75,    // m, seat above axle at bodyCom; seat-to-lower-pedal reach seatHeight + crankLength stays 0.875 m
   legStiffness: 15000, // N/m, legs: a spring between wheel and body along the body axis; at bodyCom it carries the body's weight
   legDamping: 1200,    // N·s/m, the legs' damping (≈ 0.6 of critical for the body on them)
   legMin: 0.7,         // m, center of mass above axle with the legs fully bent: a hard stop
@@ -31,7 +35,13 @@ export const DEFAULT_PARAMS = {
   hipSoftSpeed: 4,     // m/s, horizontal speed at which the hip reaches its fast, soft setting
   hipDriveSlow: 30,    // N·m, hip torque per pedal input near rest: → pitches the torso forward (+)
   hipDriveFast: -30,   // N·m, the same from hipSoftSpeed up: → throws the torso back (−)
-  hipManualAngle: 0.26, // rad (≈ 15°), hip spring setpoint (torsoTheta − theta) per manual torso input (`hip` in step): + forward
+  hipManualAngle: 0.52, // rad (≈ 30°), hip spring setpoint (torsoTheta − theta) per manual torso input (`hip` in step): + forward
+  // auto torso mode (`autoHip`): hip setpoint = lean·θ − rate·ω − torso·torsoTheta − torsoRate·torsoOmega, rad
+  hipAutoLean: 2.0,
+  hipAutoRate: 0.625,  // s
+  hipAutoTorso: 0.625,
+  hipAutoTorsoRate: 0.25, // s
+  hipAutoMax: 0.78,    // rad (≈ 45°), setpoint limit
   maxHipTorque: 90,    // N·m, spring/damper torque limit (equal and opposite on both links)
   pedalAccel: 5,       // m/s² target axle acceleration from held pedals
   pedalAccelMax: 8,    // m/s² target when pushing toward a lean of leanForMaxBoost or more
@@ -40,7 +50,8 @@ export const DEFAULT_PARAMS = {
   releaseDecel: 0.5,   // m/s², slower coast-down to zero after release
   accelRiseTime: 0.1,  // s, time for acceleration to go 0 → pedalAccel (and back)
   maxCadence: 200,     // rpm, cadence at which the legs can no longer push the wheel forward
-  maxPedalTorque: 100, // N·m, leg torque at the cranks from standstill (≈ 800 N on a 0.125 m crank)
+  pedalForce: 800,     // N, the rider's push on a pedal from standstill; leg torque limit = pedalForce · crankLength (100 N·m on 125 mm)
+  coastTorque: 20,     // N·m, the most the legs resist the wheel with released pedals
   rollingResistance: 0.015, // rolling resistance coefficient (tyre on asphalt)
   dragArea: 0.5,       // m², Cd·A of an upright rider
   airDensity: 1.2,     // kg/m³
@@ -49,7 +60,8 @@ export const DEFAULT_PARAMS = {
   crankLength: 0.125,  // m
   track: [[-1e6, 0], [1e6, 0]], // terrain polyline of [x, y] points, m, ordered by x; flat floor by default
   finish: Infinity,    // m, the finish line's x: the run is over (`finished`) once the axle crosses it
-  levelUrls: ['learning', 'ledges', 'pits'].map((n) => new URL(`../levels/${n}.json`, import.meta.url).href), // level JSONs { name, points, start, finish } listed in the menu; fetched, so they need the dev server
+  levelUrls: ['learning', 'ledges', 'pits', 'muni'].map((n) => new URL(`../levels/${n}.json`, import.meta.url).href), // level JSONs { name, points, start, finish } listed in the menu; fetched, so they need the dev server
+  unicycleUrls: ['24', '26'].map((n) => new URL(`../unicycles/${n}.json`, import.meta.url).href), // unicycle JSONs { name, ...params } listed in the menu; each overrides these params
   consoleLog: true,    // log input changes and falls to the console
   logEndpoint: null,   // URL to POST log rows to every second (see dev-server.js); null = off
 };
@@ -87,8 +99,11 @@ function commandedAccel(s, speed, input, dt, p, slopeAcc = 0) {
 function pedalTorque(s, speed, input, dt, p, torqueForAccel, slopeAcc = 0) {
   const maxSpeed = p.maxCadence * 2 * Math.PI * p.wheelRadius / 60;
   const fade = Math.max(0, 1 - Math.abs(speed) / maxSpeed);
-  const hi = p.maxPedalTorque * (speed >= 0 ? fade : 1) + p.leanTorqueBoost * leanBoost(s.theta, 1, p);
-  const lo = -p.maxPedalTorque * (speed <= 0 ? fade : 1) - p.leanTorqueBoost * leanBoost(s.theta, -1, p);
+  // released pedals: the legs only resist the wheel softly, so body motion can roll it
+  const cap = input === 0 ? p.coastTorque : Infinity;
+  const maxTorque = p.pedalForce * p.crankLength;
+  const hi = Math.min(cap, maxTorque * (speed >= 0 ? fade : 1) + p.leanTorqueBoost * leanBoost(s.theta, 1, p));
+  const lo = Math.max(-cap, -maxTorque * (speed <= 0 ? fade : 1) - p.leanTorqueBoost * leanBoost(s.theta, -1, p));
   const cmd = commandedAccel(s, speed, input, dt, p, slopeAcc);
   return { tau: Math.max(lo, Math.min(hi, torqueForAccel(cmd))), cmd };
 }
@@ -97,7 +112,7 @@ function pedalTorque(s, speed, input, dt, p, torqueForAccel, slopeAcc = 0) {
  *  requested torso inertia and COM separation leave a positive lower-link inertia. */
 function links(s, p) {
   const mt = p.bodyMass * p.torsoMassFraction, ml = p.bodyMass - mt;
-  const offset = HIP - p.bodyCom, c = p.torsoCom, h = s.leg + offset;
+  const offset = p.seatHeight + HIP - p.bodyCom, c = p.torsoCom, h = s.leg + offset;
   const a = s.leg - mt * (offset + c) / ml;
   const Il = Math.max(0.05, p.bodyInertia - p.torsoInertia - p.bodyMass * p.torsoMassFraction * (offset + c) ** 2 / (1 - p.torsoMassFraction));
   const A = ml * a + mt * h, B = mt * c, C = mt * h * c;
@@ -143,8 +158,8 @@ function solve(matrix, rhs, n = rhs.length) {
 /** Hip spring, damper and the rider's hip drive at horizontal speed `speed` with pedal `input`:
  *  stiff near rest, soft from hipSoftSpeed up, blended with a smoothstep. The drive follows the
  *  player's key only (no lean feedback): near rest → bends the torso forward, at speed back.
- *  In manual mode (`hip` ∈ {-1, 0, 1}, not null) the hip keeps its rest stiffness at any speed and the
- *  pedals don't drive it: instead the spring's setpoint moves to `hip · hipManualAngle`.
+ *  In manual/auto torso mode (`hip` a number, not null) the hip keeps its rest stiffness at any speed and
+ *  the pedals don't drive it: instead the spring's setpoint moves to `hip · hipManualAngle`.
  *  Internal only: both links get equal and opposite torques. */
 export function hipGains(speed, p, input = 0, hip = null) {
   const x = hip === null ? Math.min(1, Math.abs(speed) / p.hipSoftSpeed) : 0, w = x * x * (3 - 2 * x);
@@ -152,6 +167,15 @@ export function hipGains(speed, p, input = 0, hip = null) {
     c: p.hipDamping + (p.hipDampingFast - p.hipDamping) * w,
     drive: hip === null ? input * (p.hipDriveSlow + (p.hipDriveFast - p.hipDriveSlow) * w) : 0,
     target: hip === null ? 0 : hip * p.hipManualAngle };
+}
+
+/** Auto torso mode: the rider's hip feedback on the measured lean, in `step`'s `hip` units (the
+ *  setpoint is `hip · hipManualAngle`). An explicit, player-chosen assist: it only moves the hip
+ *  spring's setpoint, so the hip torque stays internal; the wheel is still the player's alone. */
+export function autoHip(s, p) {
+  const target = p.hipAutoLean * s.theta - p.hipAutoRate * s.omega
+    - p.hipAutoTorso * s.torsoTheta - p.hipAutoTorsoRate * s.torsoOmega;
+  return Math.max(-p.hipAutoMax, Math.min(p.hipAutoMax, target)) / p.hipManualAngle;
 }
 
 /** Backward spring/damper forces are part of the SAME mass solve, not a torso response after

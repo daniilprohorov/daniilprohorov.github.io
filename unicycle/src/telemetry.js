@@ -12,12 +12,12 @@ export class Telemetry {
     this.session = `session-${new Date().toISOString().replace(/[:.]/g, '-')}`;
   }
 
-  record(s, input, run, levelIndex) {
+  record(s, input, run, levelIndex, torsoMode, unicycle) {
     this.log.push({
       run,
       t: +s.t.toFixed(4), input, x: +s.x.toFixed(4), v: +s.v.toFixed(4), acc: +s.acc.toFixed(3),
       y: +s.y.toFixed(4), vy: +s.vy.toFixed(4), wheelOmega: +s.wheelOmega.toFixed(4),
-      airborne: s.airborne ? 1 : 0, charge: +s.charge.toFixed(4), level: levelIndex,
+      airborne: s.airborne ? 1 : 0, charge: +s.charge.toFixed(4), level: levelIndex, torsoMode, unicycle,
       thetaDeg: +(s.theta * 180 / Math.PI).toFixed(3), omega: +s.omega.toFixed(4),
       alpha: +s.alpha.toFixed(3), tau: +s.tau.toFixed(2),
       torsoThetaDeg: +(s.torsoTheta * 180 / Math.PI).toFixed(3),
@@ -51,7 +51,7 @@ export class Telemetry {
   }
 }
 
-const LOG_COLS = ['run', 't', 'input', 'x', 'v', 'acc', 'thetaDeg', 'omega', 'alpha', 'tau', 'torsoThetaDeg', 'torsoOmega', 'torsoAlpha', 'hipAngleDeg', 'hipOmega', 'hipTau', 'y', 'vy', 'wheelOmega', 'airborne', 'charge', 'level'];
+const LOG_COLS = ['run', 't', 'input', 'x', 'v', 'acc', 'thetaDeg', 'omega', 'alpha', 'tau', 'torsoThetaDeg', 'torsoOmega', 'torsoAlpha', 'hipAngleDeg', 'hipOmega', 'hipTau', 'y', 'vy', 'wheelOmega', 'airborne', 'charge', 'level', 'torsoMode', 'unicycle'];
 function toCsv(rows, header) {
   const lines = rows.map((r) => LOG_COLS.map((c) => r[c]).join(','));
   return (header ? [LOG_COLS.join(','), ...lines] : lines).join('\n');

@@ -1,6 +1,6 @@
 // Browser lifecycle and game coordination. Physics and drawing remain independent.
-import { DEFAULT_PARAMS, createState, step } from './physics.js';
-import { render, menuRowAt } from './renderer.js';
+import { DEFAULT_PARAMS, createState, step, autoHip } from './physics.js';
+import { render, menuRowAt, onUnicycleRow } from './renderer.js';
 import { Telemetry } from './telemetry.js';
 
 
@@ -15,17 +15,26 @@ export class UnicycleGame {
     this.ctx = this.canvas.getContext('2d');
     this.mobile = false; // mobile mode (top-right toggle, never automatic): on-screen ◀ JUMP ▶ buttons
     this.keys = new Set();
-    this.manual = false; // manual torso mode (M): arrows pedal, A/D drive the hip
-    this.menu = true; // start screen: pick a level (↑/↓ or click), Enter/Space/click starts; Esc in game returns here
+    this.torsoMode = 'pedals'; // TORSO_MODES key: dropdown (top-right) or M cycles it
+    this.menu = true; // start screen: pick a level (↑/↓ or click) and a unicycle (←/→ or click), Enter/Space/click starts; Esc in game returns here
     this.levels = null; // [{ name, points: [[x, y], …], start, finish }], fetched from levelUrls
     this.level = null; // the level picked in the menu (selectLevel)
-    this.bestTimes = loadBestTimes(); // level name → best finish time, s; kept in localStorage
+    this.unicycles = null; // [{ name, ...params }], fetched from unicycleUrls
+    this.unicycle = null; // the unicycle picked in the menu (selectUnicycle)
+    this.bestTimes = loadBestTimes(); // `${unicycle}|${level}` name → best finish time, s; kept in localStorage
     this.result = null; // the last finish, shown in the menu: { name, time, record }
     this.run = 0;   // attempts so far; reset() starts the next one
     this.telemetry = new Telemetry(this.p.logEndpoint);
     this.s = createState(0, this.p); // the rider shown behind the menu
-    Promise.all(this.p.levelUrls.map((url) => fetch(url).then((r) => r.json()))).then((levels) => {
+    const fetchAll = (urls) => Promise.all(urls.map((url) => fetch(url).then((r) => r.json())));
+    Promise.all([fetchAll(this.p.levelUrls), fetchAll(this.p.unicycleUrls)]).then(([levels, unicycles]) => {
+      this.unicycles = unicycles;
+      // times from before the unicycle choice were all set on the first (24") unicycle
+      for (const key of Object.keys(this.bestTimes)) {
+        if (!key.includes('|')) { this.bestTimes[`${unicycles[0].name}|${key}`] ??= this.bestTimes[key]; delete this.bestTimes[key]; }
+      }
       this.levels = levels;
+      this.selectUnicycle(0);
       this.selectLevel(0);
     }).catch(() => { this.levelError = true; }); // e.g. opened via file:// instead of the dev server
 
@@ -33,11 +42,12 @@ export class UnicycleGame {
       if (e.code === 'KeyL' && e.type === 'keydown') { e.preventDefault(); this.telemetry.downloadLog(); return; }
       if (e.type === 'keydown' && this.menu && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); this._startKey = e.code; this.startGame(); return; }
       if (e.type === 'keydown' && this.menu && this.levels && (e.code === 'ArrowUp' || e.code === 'ArrowDown')) { e.preventDefault(); this.selectLevel(this.levelIndex + (e.code === 'ArrowUp' ? -1 : 1)); return; }
+      if (e.type === 'keydown' && this.menu && this.unicycles && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) { e.preventDefault(); this.selectUnicycle(this.unicycleIndex + (e.code === 'ArrowLeft' ? -1 : 1)); this.selectLevel(this.levelIndex); return; }
       // the key that started the game (Space is also jump) does nothing until it is released
       if (e.code === this._startKey) { e.preventDefault(); if (e.type === 'keyup') this._startKey = null; return; }
       if (e.type === 'keydown' && !this.menu && e.code === 'Escape') { e.preventDefault(); this.toMenu(); return; }
-      if (e.code === 'KeyM') { e.preventDefault(); if (e.type === 'keydown' && !e.repeat) { this.manual = !this.manual; this.keys.clear(); } return; }
-      const k = (this.manual ? MANUAL_KEY_MAP : KEY_MAP)[e.code];
+      if (e.code === 'KeyM') { e.preventDefault(); if (e.type === 'keydown' && !e.repeat) this.setTorsoMode(MODE_ORDER[(MODE_ORDER.indexOf(this.torsoMode) + 1) % MODE_ORDER.length]); return; }
+      const k = (this.torsoMode === 'manual' ? MANUAL_KEY_MAP : KEY_MAP)[e.code];
       if (!k) return;
       e.preventDefault();
       e.type === 'keydown' ? this.keys.add(k) : this.keys.delete(k);
@@ -50,6 +60,7 @@ export class UnicycleGame {
     this.canvas.addEventListener('pointerdown', (e) => {
       this.canvas.focus();
       if (!this.menu) return;
+      if (this.unicycles && onUnicycleRow(this.h, e.offsetY)) { this.selectUnicycle(this.unicycleIndex + 1); this.selectLevel(this.levelIndex); return; }
       const row = menuRowAt(this.h, this.levels?.length ?? 0, e.offsetY);
       if (row >= 0) this.selectLevel(row);
       this.startGame();
@@ -68,6 +79,20 @@ export class UnicycleGame {
     this.p.track = this.level.points;
     this.p.finish = this.level.finish;
     this.s = createState(this.level.start, this.p);
+  }
+
+  /** Make unicycle i (wrapping around) the current one: its config overrides the physics params.
+   *  Call selectLevel after it to put the new rider on the track. */
+  selectUnicycle(i) {
+    this.unicycleIndex = (i + this.unicycles.length) % this.unicycles.length;
+    this.unicycle = this.unicycles[this.unicycleIndex];
+    const { name, ...params } = this.unicycle;
+    Object.assign(this.p, params);
+  }
+
+  /** bestTimes key of a level on the current unicycle. */
+  bestKey(level) {
+    return `${this.unicycle.name}|${level.name}`;
   }
 
   startGame() {
@@ -97,6 +122,14 @@ export class UnicycleGame {
     box.type = 'checkbox';
     box.addEventListener('change', () => this.setMobile(box.checked));
     this.mobileToggle.append(box, 'Mobile version');
+    // torso mode dropdown, under the mobile toggle
+    this.torsoSelect = el('select', `${btn};right:10px;top:56px;padding:8px 10px;cursor:pointer;touch-action:auto`, '');
+    for (const m of MODE_ORDER) {
+      const o = el('option', 'color:#000', `Torso: ${TORSO_MODES[m]}`);
+      o.value = m;
+      this.torsoSelect.append(o);
+    }
+    this.torsoSelect.addEventListener('change', () => this.setTorsoMode(this.torsoSelect.value));
     // bottom row: pedal left, jump, pedal right; each holds its key while pressed
     const pad = `${btn};bottom:16px;height:72px;font-size:22px`;
     const hold = (b, key) => {
@@ -111,7 +144,7 @@ export class UnicycleGame {
       hold(el('button', `${pad};left:25vw;width:50vw`, 'JUMP'), 'jump'),
       hold(el('button', `${pad};right:16px;width:calc(25vw - 24px)`, '▶'), 'right'),
     ];
-    container.append(this.menuButton, this.mobileToggle, ...this.padButtons);
+    container.append(this.menuButton, this.mobileToggle, this.torsoSelect, ...this.padButtons);
     this._syncControls();
   }
 
@@ -123,6 +156,14 @@ export class UnicycleGame {
     this.canvas.focus();
   }
 
+  /** 'pedals': the pedal input also drives the hip; 'manual': A/D set it; 'auto': `autoHip` does. */
+  setTorsoMode(mode) {
+    this.torsoMode = mode;
+    this.torsoSelect.value = mode;
+    this.keys.clear();
+    this.canvas.focus();
+  }
+
   _syncControls() {
     this.menuButton.style.display = this.menu ? 'none' : '';
     for (const b of this.padButtons) b.style.display = this.mobile && !this.menu ? '' : 'none';
@@ -130,10 +171,10 @@ export class UnicycleGame {
 
   /** The finish line is crossed: record the time, keep it if it is the level's best, back to the menu. */
   finishRun() {
-    const { name } = this.level, time = this.s.t;
-    const record = !(this.bestTimes[name] <= time);
-    if (record) { this.bestTimes[name] = time; saveBestTimes(this.bestTimes); }
-    this.result = { name, time, record };
+    const { name } = this.level, key = this.bestKey(this.level), time = this.s.t;
+    const record = !(this.bestTimes[key] <= time);
+    if (record) { this.bestTimes[key] = time; saveBestTimes(this.bestTimes); }
+    this.result = { name: `${name} on ${this.unicycle.name}`, time, record };
     if (this.p.consoleLog) console.log(`[unicycle] run ${this.run} finished ${name} in ${time.toFixed(2)}s${record ? ' (best)' : ''}`);
     this.toMenu();
   }
@@ -148,7 +189,7 @@ export class UnicycleGame {
   }
 
   record(input) {
-    this.telemetry.record(this.s, input, this.run, this.levelIndex);
+    this.telemetry.record(this.s, input, this.run, this.levelIndex, MODE_ORDER.indexOf(this.torsoMode), this.unicycleIndex);
   }
 
 
@@ -179,7 +220,7 @@ export class UnicycleGame {
     if (this._onHide) { this.telemetry.flushLog(true); window.removeEventListener('pagehide', this._onHide); }
     this._ro.disconnect();
     this.canvas.remove();
-    this.menuButton.remove(); this.mobileToggle.remove(); this.padButtons.forEach((b) => b.remove());
+    this.menuButton.remove(); this.mobileToggle.remove(); this.torsoSelect.remove(); this.padButtons.forEach((b) => b.remove());
   }
 
   resize() {
@@ -194,13 +235,14 @@ export class UnicycleGame {
     if (this.menu) return;
     if (this.s.fallen) { this.reset(); return; } // restart immediately, stay in game
     const input = (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
-    // manual mode: A/D drive the torso at the hip; otherwise the pedals also drive it (hip = null)
-    const hip = this.manual ? (this.keys.has('torsoForward') ? 1 : 0) - (this.keys.has('torsoBack') ? 1 : 0) : null;
+    // manual: A/D drive the torso at the hip; auto: lean feedback per sub-step; pedals: hip = null
+    const manualHip = (this.keys.has('torsoForward') ? 1 : 0) - (this.keys.has('torsoBack') ? 1 : 0);
     const jump = this.keys.has('jump');
     const H = 1 / 240;
     this.acc += dt * this.p.timeScale;
     while (this.acc >= H && !this.s.fallen && !this.s.finished) {
       const airborne = this.s.airborne;
+      const hip = this.torsoMode === 'manual' ? manualHip : this.torsoMode === 'auto' ? autoHip(this.s, this.p) : null;
       step(this.s, input, jump, H, this.p, hip);
       this.acc -= H;
       // 60 Hz samples + every pedal input change, take-off and touchdown
@@ -225,8 +267,8 @@ export class UnicycleGame {
 
   render() {
     render(this.ctx, { w: this.w, h: this.h, dpr: this.dpr }, this.s, this.p, {
-      menu: this.menu, levels: this.levels, level: this.level,
-      levelIndex: this.levelIndex, bestTimes: this.bestTimes, manual: this.manual, mobile: this.mobile,
+      menu: this.menu, levels: this.levels, level: this.level, unicycle: this.unicycle,
+      levelIndex: this.levelIndex, best: (level) => this.bestTimes[this.bestKey(level)], torsoMode: this.torsoMode, mobile: this.mobile,
       result: this.result, levelError: this.levelError,
     });
   }
@@ -243,7 +285,10 @@ const KEY_MAP = {
   ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
   ArrowUp: 'jump', KeyW: 'jump', Space: 'jump',
 };
-// Manual mode (M toggles): arrows pedal, A/D drive the torso back/forward at the hip.
+// Torso control modes, in M-key order; the log's `torsoMode` column is the index here.
+const TORSO_MODES = { pedals: 'pedals', manual: 'manual (A/D)', auto: 'automatic' };
+const MODE_ORDER = Object.keys(TORSO_MODES);
+// Manual mode: arrows pedal, A/D drive the torso back/forward at the hip.
 const MANUAL_KEY_MAP = {
   ArrowLeft: 'left', ArrowRight: 'right', KeyA: 'torsoBack', KeyD: 'torsoForward',
   ArrowUp: 'jump', KeyW: 'jump', Space: 'jump',

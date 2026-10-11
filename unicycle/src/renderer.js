@@ -16,6 +16,16 @@ export function menuRowAt(height, count, y) {
   return -1;
 }
 
+/** Screen y of the menu's unicycle row (above the levels), px. */
+function unicycleRowY(height) {
+  return height * 0.4 - 1.5 * MENU_ROW;
+}
+
+/** Whether y falls on the menu's unicycle row. */
+export function onUnicycleRow(height, y) {
+  return Math.abs(y - unicycleRowY(height)) < MENU_ROW / 2;
+}
+
 export function render(ctx, viewport, s, p, ui) {
   const { w, h, dpr } = viewport;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -82,13 +92,13 @@ export function render(ctx, viewport, s, p, ui) {
   // HUD, to the right of the top-left menu button
   ctx.save(); ctx.translate(110, 0);
   ctx.fillStyle = '#123'; ctx.font = '14px sans-serif'; ctx.textAlign = 'left';
-  const best = ui.level && ui.bestTimes[ui.level.name];
-  if (ui.level) ctx.fillText(`${ui.level.name}   Time: ${s.t.toFixed(2)} s   Best: ${best ? best.toFixed(2) + ' s' : '—'}   To the finish: ${Math.max(0, p.finish - s.x).toFixed(0)} m`, 12, 22);
+  const best = ui.level && ui.best(ui.level);
+  if (ui.level) ctx.fillText(`${ui.level.name} on ${ui.unicycle.name}   Time: ${s.t.toFixed(2)} s   Best: ${best ? best.toFixed(2) + ' s' : '—'}   To the finish: ${Math.max(0, p.finish - s.x).toFixed(0)} m`, 12, 22);
   ctx.fillText(ui.mobile
     ? 'MOBILE: ◀ ▶ buttons — pedal,  JUMP button — jump (hold to charge)'
-    : ui.manual
-      ? 'MANUAL: ← → — pedal,  A D — torso back/forward,  ↑ / W / Space — jump,  M — auto mode,  L — log (CSV)'
-      : '← → / A D — pedal,  ↑ / W / Space — jump (hold to charge),  M — manual torso mode,  L — download physics log (CSV)', 12, 42);
+    : ui.torsoMode === 'manual'
+      ? 'MANUAL TORSO: ← → — pedal,  A D — torso back/forward,  ↑ / W / Space — jump,  M — next torso mode,  L — log (CSV)'
+      : `${ui.torsoMode === 'auto' ? 'AUTO TORSO: ' : ''}← → / A D — pedal,  ↑ / W / Space — jump (hold to charge),  M — next torso mode,  L — download physics log (CSV)`, 12, 42);
   ctx.font = '12px monospace'; ctx.fillStyle = '#345';
   ctx.fillText(`v=${s.v.toFixed(2)} m/s  a=${s.acc.toFixed(2)}  θ=${(s.theta * 180 / Math.PI).toFixed(1)}°  hip=${((s.torsoTheta - s.theta) * 180 / Math.PI).toFixed(1)}°  ω=${s.omega.toFixed(2)}  α=${s.alpha.toFixed(2)}  τ=${s.tau.toFixed(0)} N·m`, 12, 62);
   // jump charge: fills while jump is held, lit orange during the push-off
@@ -110,14 +120,18 @@ export function render(ctx, viewport, s, p, ui) {
       ctx.font = 'bold 26px sans-serif';
       ctx.fillText(ui.levelError ? 'Levels failed to load — run node dev-server.js' : 'Loading levels…', w / 2, menuRowY(h, 0));
     }
+    if (ui.unicycle) {
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillText(`Unicycle:  ◀  ${ui.unicycle.name}  ▶`, w / 2, unicycleRowY(h) + 8);
+    }
     ui.levels?.forEach((level, i) => {
-      const y = menuRowY(h, i), on = i === ui.levelIndex, best = ui.bestTimes[level.name];
+      const y = menuRowY(h, i), on = i === ui.levelIndex, best = ui.best(level);
       if (on) { ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(w / 2 - 220, y - MENU_ROW / 2, 440, MENU_ROW); ctx.fillStyle = '#fff'; }
       ctx.font = `${on ? 'bold ' : ''}22px sans-serif`;
       ctx.fillText(`${on ? '▶ ' : ''}${i + 1}. ${level.name}   best: ${best ? `${best.toFixed(2)} s` : '—'}`, w / 2, y + 8);
     });
     const y = menuRowY(h, ui.levels?.length ?? 1) + 16;
-    ctx.font = '14px sans-serif'; ctx.fillText('↑ / ↓ — pick a level,  Enter / Space / click — start,  Esc in game — back to menu', w / 2, y);
+    ctx.font = '14px sans-serif'; ctx.fillText('↑ / ↓ — pick a level,  ← / → — pick a unicycle,  Enter / Space / click — start,  Esc in game — back to menu', w / 2, y);
   }
 }
 
@@ -142,14 +156,25 @@ function drawRider(ctx, s, p, P, scale) {
   // far leg (behind wheel)
   drawLeg(ctx, S, hip, pedalL, '#37474f', scale);
 
-  // wheel
+  // wheel: the tyre's side wall is tyreWidth tall (≈ its width); its tread spans tyreWidth in depth
+  const T = p.tyreWidth;
   const [ax, ay] = S(axle);
-  ctx.strokeStyle = '#222'; ctx.lineWidth = scale * 0.05;
-  ctx.beginPath(); ctx.arc(ax, ay, R * scale - ctx.lineWidth / 2, 0, 7); ctx.stroke();
+  const [bx, by] = P(axX, axY, T / 2), [fx, fy] = P(axX, axY, -T / 2);
+  const tyreR = (R - T / 2) * scale;
+  ctx.strokeStyle = '#111'; ctx.lineWidth = T * scale;
+  ctx.beginPath(); ctx.arc(bx, by, tyreR, 0, 7); ctx.stroke(); // far side wall
+  // tread: the tyre's outline between its two side walls, seen from the depth direction
+  ctx.lineWidth = T * scale;
+  for (let i = 0; i < 24; i++) {
+    const a = wheelAngle + (i * Math.PI) / 12, c = Math.cos(a), sa = Math.sin(a);
+    line(ctx, [bx + c * tyreR, by + sa * tyreR], [fx + c * tyreR, fy + sa * tyreR]);
+  }
+  ctx.strokeStyle = '#222';
+  ctx.beginPath(); ctx.arc(fx, fy, tyreR, 0, 7); ctx.stroke(); // near side wall
   ctx.strokeStyle = '#999'; ctx.lineWidth = 1;
   for (let i = 0; i < 12; i++) {
     const a = wheelAngle + (i * Math.PI) / 6;
-    line(ctx, [ax, ay], [ax + Math.cos(a) * R * scale * 0.9, ay + Math.sin(a) * R * scale * 0.9]);
+    line(ctx, [ax, ay], [ax + Math.cos(a) * (R - T) * scale, ay + Math.sin(a) * (R - T) * scale]);
   }
   // frame + seat
   ctx.strokeStyle = '#c62828'; ctx.lineWidth = scale * 0.035;
