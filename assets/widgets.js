@@ -163,7 +163,7 @@
       const cur = Math.min(Math.max(+(m[1] || 1), 1), pages);
       const items = posts.slice((cur - 1) * BLOG_PER_PAGE, cur * BLOG_PER_PAGE).map(p => {
         const date = new Date(p.date).toLocaleString("ru-RU", { timeZone: TZ, dateStyle: "long", timeStyle: "short" });
-        const photos = p.photos.map(src => `<img src="./${src}" alt="" loading="lazy">`).join("");
+        const photos = p.photos.filter(src => !src.startsWith("http")).map(src => `<img src="./${src}" alt="" loading="lazy">`).join("");
         return `<div class="post"><div class="post-date"><a href="https://t.me/${p.id}" target="_blank" rel="noopener">${date}</a></div>${photos}<div class="post-text">${p.html}</div></div>`;
       }).join("") || "<p>Пока пусто</p>";
       const nav = pages < 2 ? "" : `<div class="pager">` +

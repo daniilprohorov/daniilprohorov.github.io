@@ -8,6 +8,7 @@ import html
 import json
 import re
 import sys
+import urllib.error
 import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
@@ -98,6 +99,23 @@ def num(post):
     return int(post["id"].rsplit("/", 1)[1])
 
 
+def save_photos(post, saved):
+    """Скачивает фото поста в blog/img/. Уже скачанные (из saved) не трогает.
+    Если CDN отдал ошибку, оставляет исходный URL: сайт его не показывает,
+    а следующий запуск попробует скачать по свежей ссылке."""
+    out = []
+    for i, url in enumerate(post["photos"]):
+        local = f"blog/img/{num(post)}-{i}.jpg"
+        if local not in saved:
+            try:
+                (ROOT / local).write_bytes(fetch(url))
+            except (urllib.error.URLError, TimeoutError) as e:
+                print(f"skip photo {post['id']} #{i}: {e}", file=sys.stderr)
+                local = url
+        out.append(local)
+    return out
+
+
 def main():
     old = json.loads(OUT.read_text()) if OUT.exists() else []
     fresh = page()
@@ -114,15 +132,11 @@ def main():
     IMG.mkdir(parents=True, exist_ok=True)
     added = 0
     for p in fresh:
-        if p["id"] in posts:  # уже есть — обновляем текст (пост могли отредактировать)
+        if p["id"] in posts:  # уже есть — обновляем текст (пост могли отредактировать) и докачиваем фото
             posts[p["id"]]["html"] = p["html"]
+            posts[p["id"]]["photos"] = save_photos(p, posts[p["id"]]["photos"])
             continue
-        local = []
-        for i, url in enumerate(p["photos"]):
-            name = f"{num(p)}-{i}.jpg"
-            (IMG / name).write_bytes(fetch(url))
-            local.append(f"blog/img/{name}")
-        p["photos"] = local
+        p["photos"] = save_photos(p, [])
         posts[p["id"]] = p
         added += 1
 
