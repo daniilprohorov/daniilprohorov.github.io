@@ -156,21 +156,11 @@ function drawRider(ctx, s, p, P, scale) {
   // far leg (behind wheel)
   drawLeg(ctx, S, hip, pedalL, '#37474f', scale);
 
-  // wheel: the tyre's side wall is tyreWidth tall (≈ its width); its tread spans tyreWidth in depth
+  // wheel, flat side view: the tyre ring is tyreWidth thick (its section ≈ its width)
   const T = p.tyreWidth;
   const [ax, ay] = S(axle);
-  const [bx, by] = P(axX, axY, T / 2), [fx, fy] = P(axX, axY, -T / 2);
-  const tyreR = (R - T / 2) * scale;
-  ctx.strokeStyle = '#111'; ctx.lineWidth = T * scale;
-  ctx.beginPath(); ctx.arc(bx, by, tyreR, 0, 7); ctx.stroke(); // far side wall
-  // tread: the tyre's outline between its two side walls, seen from the depth direction
-  ctx.lineWidth = T * scale;
-  for (let i = 0; i < 24; i++) {
-    const a = wheelAngle + (i * Math.PI) / 12, c = Math.cos(a), sa = Math.sin(a);
-    line(ctx, [bx + c * tyreR, by + sa * tyreR], [fx + c * tyreR, fy + sa * tyreR]);
-  }
-  ctx.strokeStyle = '#222';
-  ctx.beginPath(); ctx.arc(fx, fy, tyreR, 0, 7); ctx.stroke(); // near side wall
+  ctx.strokeStyle = '#222'; ctx.lineWidth = T * scale;
+  ctx.beginPath(); ctx.arc(ax, ay, (R - T / 2) * scale, 0, 7); ctx.stroke();
   ctx.strokeStyle = '#999'; ctx.lineWidth = 1;
   for (let i = 0; i < 12; i++) {
     const a = wheelAngle + (i * Math.PI) / 6;
