@@ -11,3 +11,7 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
+
+### Site design
+
+Main page (`index.html`) follows a web 1.0 / GeoCities concept: layout, widgets, colour rules (no yellow text on white, no decorative junk). See `docs/design.md` before changing the page.
