@@ -1,7 +1,7 @@
 """Собирает посты публичного Telegram-канала из веб-превью t.me/s/<channel> в blog/posts.json.
 
-Без ключей и аккаунта. Посты накапливаются: новые дописываются к уже сохранённым.
-Если blog/posts.json ещё нет — выкачивается вся доступная история (?before=<id>).
+Без ключей и аккаунта. Берётся только первая страница превью (последние ~20 постов);
+посты накапливаются: новые дописываются к уже сохранённым.
 Фото скачиваются в blog/img/, чтобы сайт не зависел от CDN Telegram.
 """
 import html
@@ -88,8 +88,8 @@ def fetch(url):
         return r.read()
 
 
-def page(before=None):
-    url = f"https://t.me/s/{CHANNEL}" + (f"?before={before}" if before else "")
+def page():
+    url = f"https://t.me/s/{CHANNEL}"
     p = ChannelPage()
     p.feed(fetch(url).decode("utf-8"))
     return [x for x in p.posts if x["html"] or x["photos"]]
@@ -119,15 +119,6 @@ def save_photos(post, saved):
 def main():
     old = json.loads(OUT.read_text()) if OUT.exists() else []
     fresh = page()
-    if not old:  # первый запуск — вся история
-        before = min(map(num, fresh), default=None)
-        while before:
-            older = page(before)
-            if not older or min(map(num, older)) >= before:
-                break
-            fresh += older
-            before = min(map(num, older))
-
     posts = {p["id"]: p for p in old}
     IMG.mkdir(parents=True, exist_ok=True)
     added = 0
